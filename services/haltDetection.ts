@@ -6,6 +6,10 @@
 
 import { TrainData, Station, HaltDetection } from '@/types/train';
 import { calculateDistance } from '@/lib/utils';
+import {
+  detectHaltFromHistory,
+  updateLocationHistory,
+} from './railYatriService';
 
 /**
  * Threshold constants for halt detection
@@ -112,62 +116,59 @@ function determineHaltReason(
  * Main halt detection function
  * Returns detailed halt information if halt is detected
  *
- * Algorithm:
- * 1. Check if speed is below threshold
- * 2. Check if location is NOT at scheduled station
- * 3. Check if halt duration exceeds minimum threshold
+ * Algorithm (Real Data):
+ * 1. Track location history as train moves
+ * 2. Detect halt = speed 0 AND same coordinates for 5+ minutes
+ * 3. Verify not at scheduled station
  * 4. Return halt details if all conditions met
  */
 export function detectUnexpectedHalt(trainData: TrainData): HaltDetection {
-  const { currentLocation, speed, scheduledStations, currentStationIndex, delay } = trainData;
+  const { currentLocation, speed, trainNumber, scheduledStations, currentStationIndex } = trainData;
 
-  // Check 1: Is train moving?
-  const isMoving = speed > HALT_THRESHOLDS.SPEED_THRESHOLD;
+  // Update location history for real halt detection
+  updateLocationHistory(
+    trainNumber,
+    currentLocation.latitude,
+    currentLocation.longitude,
+    currentLocation.timestamp
+  );
 
-  if (isMoving) {
+  // Use real halt detection based on location history
+  const { isHalted, duration } = detectHaltFromHistory(trainNumber, speed);
+
+  if (!isHalted) {
     return {
       halted: false,
     };
   }
 
-  // Check 2: Is this a scheduled station stop?
+  // Check if this is a scheduled station stop (expected halt)
   const atCurrentStation = isAtScheduledStation(
     currentLocation,
     scheduledStations,
     currentStationIndex
   );
 
-  const nearUncomingStation = isNearUpcomingStation(
+  const nearUpcomingStation = isNearUpcomingStation(
     currentLocation,
     scheduledStations,
     currentStationIndex
   );
 
   // If at or near a scheduled station, it's expected
-  if (atCurrentStation || nearUncomingStation) {
+  if (atCurrentStation || nearUpcomingStation) {
     return {
       halted: false,
     };
   }
 
-  // Check 3: Has the halt lasted long enough?
-  // For demo purposes, we'll generate a random halt start time within reasonable bounds
-  const haltStartTime = Date.now() - (delay * 60 * 1000);
-  const haltDuration = calculateHaltDuration(haltStartTime);
-
-  if (haltDuration < HALT_THRESHOLDS.MIN_HALT_DURATION) {
-    return {
-      halted: false,
-    };
-  }
-
-  // All conditions met: UNEXPECTED HALT DETECTED
-  const reason = determineHaltReason(trainData, haltDuration, false);
+  // UNEXPECTED HALT DETECTED (not at scheduled station)
+  const reason = determineHaltReason(trainData, duration, false);
 
   return {
     halted: true,
-    haltDuration: parseFloat(haltDuration.toFixed(2)),
-    haltStartTime: haltStartTime,
+    haltDuration: duration,
+    haltStartTime: currentLocation.timestamp - duration * 60 * 1000,
     detectedAt: currentLocation,
     reason: reason,
   };

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Search } from 'lucide-react';
+import { Search, Sliders } from 'lucide-react';
 import { parseTrainNumber } from '@/lib/utils';
 
 /**
@@ -114,6 +114,18 @@ export default function TrainSearch() {
           ))}
         </div>
       </div>
+
+      {/* Advanced Search Link */}
+      <motion.button
+        type="button"
+        onClick={() => router.push('/search')}
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        className="w-full mt-6 card p-3 border border-dashed border-accent-blue/50 hover:border-accent-blue hover:bg-accent-blue/5 transition-all flex items-center justify-center gap-2 text-accent-blue hover:text-accent-blue-light"
+      >
+        <Sliders size={18} />
+        <span className="font-semibold">Advanced Search & Filters</span>
+      </motion.button>
     </motion.form>
   );
 }

@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { TrainInsightData } from '@/types/train';
 
 interface UseTrainDataOptions {
@@ -20,12 +20,28 @@ export function useTrainData(trainNumber: string, options: UseTrainDataOptions =
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
+  // Use refs to avoid dependency array issues
+  const onErrorRef = useRef(onError);
+  const trainNumberRef = useRef(trainNumber);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  useEffect(() => {
+    trainNumberRef.current = trainNumber;
+  }, [trainNumber]);
+
+  // Fetch function - doesn't depend on callback dependencies
   const fetchData = useCallback(async () => {
+    const currentTrainNumber = trainNumberRef.current;
+    if (!currentTrainNumber) return;
+
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/train-details?trainNumber=${trainNumber}`);
+      const response = await fetch(`/api/train-details?trainNumber=${currentTrainNumber}`);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -36,24 +52,47 @@ export function useTrainData(trainNumber: string, options: UseTrainDataOptions =
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
-      onError?.(error);
+      onErrorRef.current?.(error);
     } finally {
       setLoading(false);
     }
-  }, [trainNumber, onError]);
+  }, []);
 
-  // Initial fetch
+  // Initial fetch - only when trainNumber actually changes
   useEffect(() => {
     fetchData();
-  }, [trainNumber, fetchData]);
+  }, [trainNumber]);
 
-  // Polling
+  // Polling - simple interval without dependency on fetchData
   useEffect(() => {
     if (pollInterval <= 0) return;
 
-    const interval = setInterval(fetchData, pollInterval);
-    return () => clearInterval(interval);
-  }, [pollInterval, fetchData]);
+    let isMounted = true;
+
+    const interval = setInterval(async () => {
+      if (!isMounted) return;
+
+      const currentTrainNumber = trainNumberRef.current;
+      if (!currentTrainNumber) return;
+
+      try {
+        const response = await fetch(`/api/train-details?trainNumber=${currentTrainNumber}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        const insightData: TrainInsightData = await response.json();
+        if (isMounted) setData(insightData);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err));
+        if (isMounted) setError(error);
+        onErrorRef.current?.(error);
+      }
+    }, pollInterval);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [pollInterval]);
 
   const refetch = useCallback(() => {
     fetchData();

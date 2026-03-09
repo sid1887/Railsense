@@ -6,6 +6,10 @@
 
 import axios from 'axios';
 import { TrainData } from '@/types/train';
+import mockData from '@/public/mockTrainData.json';
+import { getLiveTrainPosition } from './railYatriService';
+import { verifyTrainOnTrack } from './railwayMapService';
+import { logger } from './logger';
 
 /**
  * Simulates real train movement by slightly modifying mock data
@@ -44,10 +48,7 @@ function simulateTrainMovement(train: TrainData): TrainData {
  */
 async function fetchMockTrainData(trainNumber: string): Promise<TrainData | null> {
   try {
-    const response = await fetch('/mockTrainData.json');
-    const data = await response.json();
-
-    const mockTrain = data.trains.find(
+    const mockTrain = (mockData as any).trains.find(
       (train: TrainData) =>
         train.trainNumber.toLowerCase() === trainNumber.toLowerCase() ||
         train.trainName.toLowerCase().includes(trainNumber.toLowerCase())
@@ -69,7 +70,13 @@ async function fetchMockTrainData(trainNumber: string): Promise<TrainData | null
  */
 async function fetchFromAPI(trainNumber: string): Promise<TrainData | null> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || '/api';
+    // Skip API calls in demo/development - use mock data instead
+    if (typeof window === 'undefined') {
+      // Server-side: skip external API calls
+      return null;
+    }
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000/api';
     const response = await axios.get(`${apiUrl}/train?trainNumber=${trainNumber}`, {
       timeout: 5000,
     });
@@ -81,8 +88,53 @@ async function fetchFromAPI(trainNumber: string): Promise<TrainData | null> {
 }
 
 /**
+ * Fetch live train data from RailYatri
+ * Converts RailYatri format to our TrainData format
+ */
+async function fetchFromRailYatri(trainNumber: string): Promise<TrainData | null> {
+  try {
+    const liveData = await getLiveTrainPosition(trainNumber);
+    if (!liveData) return null;
+
+    // Get base mock train for schedule/stations
+    const mockTrain = (mockData as any).trains.find(
+      (train: TrainData) =>
+        train.trainNumber.toLowerCase() === trainNumber.toLowerCase() ||
+        train.trainName.toLowerCase().includes(trainNumber.toLowerCase())
+    );
+
+    if (!mockTrain) return null;
+
+    // Verify train is on actual track using OpenRailwayMap
+    const onTrack = await verifyTrainOnTrack(liveData.lat, liveData.lng);
+    if (!onTrack) {
+      console.warn(`[RailYatri] Train ${trainNumber} off-track (data anomaly)`);
+      return null;
+    }
+
+    // Merge live position with mock schedule data
+    const trainData: TrainData = {
+      ...mockTrain,
+      currentLocation: {
+        latitude: liveData.lat,
+        longitude: liveData.lng,
+        timestamp: liveData.timestamp * 1000, // Convert to ms
+      },
+      speed: liveData.speed || 0,
+      delay: liveData.delay || 0,
+    };
+
+    console.log(`[RailYatri] Using live data for train ${trainNumber}`);
+    return trainData;
+  } catch (err) {
+    console.warn(`[RailYatri] Failed to fetch live data for ${trainNumber}`);
+    return null;
+  }
+}
+
+/**
  * Main function to get train data
- * Tries API first, falls back to mock data, caches results
+ * Tries: RailYatri → API → Mock data
  */
 export async function getTrainData(trainNumber: string): Promise<TrainData | null> {
   // Normalize input
@@ -93,17 +145,21 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
   }
 
   try {
-    // Try API first (if not in demo mode)
+    // Try RailYatri live data first (real-time GPS)
+    const railYatriData = await fetchFromRailYatri(normalized);
+    if (railYatriData) return railYatriData;
+
+    // Try custom API second
     if (process.env.NEXT_PUBLIC_DEMO_MODE !== 'true') {
       const apiData = await fetchFromAPI(normalized);
       if (apiData) return apiData;
     }
 
     // Fall back to mock data
-    const mockData = await fetchMockTrainData(normalized);
-    if (mockData) {
-      console.log(`[Demo Mode] Using mock data for train ${normalized}`);
-      return mockData;
+    const mockDataResult = await fetchMockTrainData(normalized);
+    if (mockDataResult) {
+      console.log(`[Demo Mode] Using simulated data for train ${normalized}`);
+      return mockDataResult;
     }
 
     // Not found
@@ -121,10 +177,7 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
  */
 export async function getNearbyTrainsData(): Promise<TrainData[]> {
   try {
-    const response = await fetch('/mockTrainData.json');
-    const data = await response.json();
-
-    return data.trains.map((train: TrainData) => simulateTrainMovement(train));
+    return (mockData as any).trains.map((train: TrainData) => simulateTrainMovement(train));
   } catch (err) {
     console.error('Error fetching nearby trains:', err);
     return [];
@@ -137,12 +190,9 @@ export async function getNearbyTrainsData(): Promise<TrainData[]> {
  */
 export async function getMockConfig() {
   try {
-    const response = await fetch('/mockTrainData.json');
-    const data = await response.json();
-
     return {
-      congestionFactors: data.congestionFactors,
-      defaultWeather: data.defaultWeather,
+      congestionFactors: (mockData as any).congestionFactors,
+      defaultWeather: (mockData as any).defaultWeather,
     };
   } catch (err) {
     console.error('Error fetching config:', err);
@@ -171,11 +221,9 @@ export async function getMockConfig() {
  */
 export async function searchTrains(query: string): Promise<TrainData[]> {
   try {
-    const response = await fetch('/mockTrainData.json');
-    const data = await response.json();
     const normalized = query.toLowerCase();
 
-    return data.trains.filter(
+    return (mockData as any).trains.filter(
       (train: TrainData) =>
         train.trainNumber.toLowerCase().includes(normalized) ||
         train.trainName.toLowerCase().includes(normalized) ||

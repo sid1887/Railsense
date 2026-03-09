@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import ToastContainer from '@/components/ToastContainer';
 
 export const metadata: Metadata = {
   title: 'RailSense - Intelligent Train Halt Insight System',
@@ -24,6 +25,7 @@ export default function RootLayout({
         <main className="min-h-screen">
           {children}
         </main>
+        <ToastContainer />
       </body>
     </html>
   );

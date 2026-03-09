@@ -59,7 +59,7 @@ export default function InsightPanel({ insight }: InsightPanelProps) {
 
   const itemVariants = {
     hidden: { opacity: 0, x: -15 },
-    visible: (i) => ({
+    visible: (i: number) => ({
       opacity: 1,
       x: 0,
       transition: { delay: 0.2 + i * 0.1, duration: 0.3 },

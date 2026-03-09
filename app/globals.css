@@ -87,7 +87,7 @@ body {
 }
 
 .btn-secondary {
-  @apply btn-base bg-dark-card text-accent-blue border border-accent-blue hover:glow-blue;
+  @apply btn-base bg-dark-card text-accent-blue border border-accent-blue hover:shadow-lg hover:shadow-accent-blue/30;
 }
 
 .btn-alert {

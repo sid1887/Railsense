@@ -66,7 +66,7 @@ export default function TrafficIndicator({ traffic, trend = 'stable' }: TrafficI
 
   const trainItemVariants = {
     hidden: { opacity: 0, x: -10 },
-    visible: (i) => ({
+    visible: (i: number) => ({
       opacity: 1,
       x: 0,
       transition: { delay: 0.1 + i * 0.05, duration: 0.3 },

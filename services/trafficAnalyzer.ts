@@ -6,6 +6,7 @@
 
 import { TrainData, TrainInfo, TrafficAnalysis } from '@/types/train';
 import { calculateDistance } from '@/lib/utils';
+import { findNearbyTrains } from './railYatriService';
 
 /**
  * Configuration for traffic analysis
@@ -19,44 +20,100 @@ const TRAFFIC_CONFIG = {
 
 /**
  * Analyze traffic around a train
- * Returns congestion level and nearby trains
+ * Returns congestion level and nearby trains using real data
  *
- * Algorithm:
- * 1. Get all nearby trains within detection radius
- * 2. Count trains in different categories
- * 3. Assign congestion level based on count
- * 4. Return traffic analysis results
+ * Algorithm (Real Data):
+ * 1. Use Haversine distance to find truly nearby trains via RailYatri
+ * 2. Filter by detection radius (5km)
+ * 3. Determine congestion level based on count
+ * 4. Return traffic analysis with real nearby trains
  */
 export async function analyzeTrafficAround(
   trainData: TrainData,
-  allTrains: TrainData[]
+  allTrains?: TrainData[]
 ): Promise<TrafficAnalysis> {
   const { latitude, longitude } = trainData.currentLocation;
 
-  // Filter trains within detection radius
-  const nearbyTrains: TrainInfo[] = [];
-
-  for (const otherTrain of allTrains) {
-    // Skip self
-    if (otherTrain.trainNumber === trainData.trainNumber) {
-      continue;
-    }
-
-    const distance = calculateDistance(
+  try {
+    // Try to get real nearby trains from RailYatri with Haversine distance
+    const realNearbyTrainsData = await findNearbyTrains(
       latitude,
       longitude,
-      otherTrain.currentLocation.latitude,
-      otherTrain.currentLocation.longitude
+      TRAFFIC_CONFIG.DETECTION_RADIUS_KM
     );
 
-    // Include trains within detection radius
-    if (distance <= TRAFFIC_CONFIG.DETECTION_RADIUS_KM) {
-      nearbyTrains.push({
-        trainNumber: otherTrain.trainNumber,
-        trainName: otherTrain.trainName,
-        distance: parseFloat(distance.toFixed(2)),
-        location: otherTrain.currentLocation,
-      });
+    // Convert to TrainInfo format
+    const nearbyTrains: TrainInfo[] = realNearbyTrainsData.map((train) => ({
+      trainNumber: train.trainNumber,
+      trainName: `Train ${train.trainNumber}`, // Fallback name
+      distance: train.distance,
+      location: {
+        latitude: train.lat,
+        longitude: train.lng,
+        timestamp: Date.now(),
+      },
+    }));
+
+    // If we got real data, use it; otherwise fall back to mock data from allTrains
+    if (nearbyTrains.length > 0) {
+      // Determine congestion level
+      let congestionLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+
+      if (nearbyTrains.length <= TRAFFIC_CONFIG.LOW_THRESHOLD) {
+        congestionLevel = 'LOW';
+      } else if (nearbyTrains.length <= TRAFFIC_CONFIG.MEDIUM_THRESHOLD) {
+        congestionLevel = 'MEDIUM';
+      } else {
+        congestionLevel = 'HIGH';
+      }
+
+      return {
+        congestionLevel,
+        nearbyTrainsCount: nearbyTrains.length,
+        nearbyTrains: nearbyTrains.slice(0, 5),
+        radiusKm: TRAFFIC_CONFIG.DETECTION_RADIUS_KM,
+      };
+    }
+
+    // Fallback to mock data if real data unavailable
+    if (!allTrains || allTrains.length === 0) {
+      return {
+        congestionLevel: 'LOW',
+        nearbyTrainsCount: 0,
+        nearbyTrains: [],
+        radiusKm: TRAFFIC_CONFIG.DETECTION_RADIUS_KM,
+      };
+    }
+  } catch (err) {
+    console.warn('[TrafficAnalyzer] Real traffic lookup failed, using mock:', err);
+  }
+
+  // Fallback: use provided mock trains
+  const nearbyTrains: TrainInfo[] = [];
+
+  if (allTrains) {
+    for (const otherTrain of allTrains) {
+      // Skip self
+      if (otherTrain.trainNumber === trainData.trainNumber) {
+        continue;
+      }
+
+      const distance = calculateDistance(
+        latitude,
+        longitude,
+        otherTrain.currentLocation.latitude,
+        otherTrain.currentLocation.longitude
+      );
+
+      // Include trains within detection radius
+      if (distance <= TRAFFIC_CONFIG.DETECTION_RADIUS_KM) {
+        nearbyTrains.push({
+          trainNumber: otherTrain.trainNumber,
+          trainName: otherTrain.trainName,
+          distance: parseFloat(distance.toFixed(2)),
+          location: otherTrain.currentLocation,
+        });
+      }
     }
   }
 
@@ -77,7 +134,7 @@ export async function analyzeTrafficAround(
   return {
     congestionLevel,
     nearbyTrainsCount: nearbyTrains.length,
-    nearbyTrains: nearbyTrains.slice(0, 5), // Return top 5 closest
+    nearbyTrains: nearbyTrains.slice(0, 5),
     radiusKm: TRAFFIC_CONFIG.DETECTION_RADIUS_KM,
   };
 }

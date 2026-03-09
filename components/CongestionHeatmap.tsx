@@ -61,7 +61,7 @@ export default function CongestionHeatmap({ traffic }: CongestionHeatmapProps) {
 
   const cellVariants = {
     hidden: { opacity: 0, scale: 0.8 },
-    visible: (i) => ({
+    visible: (i: number) => ({
       opacity: 1,
       scale: 1,
       transition: {

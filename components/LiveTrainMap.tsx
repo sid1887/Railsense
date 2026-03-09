@@ -33,19 +33,32 @@ export default function LiveTrainMap({ trainData }: LiveTrainMapProps) {
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
+    // Check if container has dimensions
+    if (mapContainerRef.current.offsetHeight === 0 || mapContainerRef.current.offsetWidth === 0) {
+      return;
+    }
+
     const { latitude, longitude } = trainData.currentLocation;
 
     // Initialize map
     if (!mapRef.current) {
-      mapRef.current = L.map(mapContainerRef.current).setView([latitude, longitude], 10);
+      try {
+        mapRef.current = L.map(mapContainerRef.current, {
+          center: [latitude, longitude],
+          zoom: 10,
+        });
 
-      // Add tile layer (using CartoDB)
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 20,
-      }).addTo(mapRef.current);
+        // Add tile layer (using CartoDB)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: 'abcd',
+          maxZoom: 20,
+        }).addTo(mapRef.current);
+      } catch (err) {
+        console.error('Error initializing Leaflet map:', err);
+        return;
+      }
     }
 
     // Update/create train marker
@@ -94,6 +107,14 @@ export default function LiveTrainMap({ trainData }: LiveTrainMapProps) {
         opacity: 0.7,
         dashArray: '5, 5',
       }).addTo(mapRef.current!);
+
+      // Fit bounds with route
+      try {
+        const bounds = L.latLngBounds(routeCoordinates as L.LatLngExpression[]);
+        mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      } catch (err) {
+        console.warn('Error fitting bounds:', err);
+      }
     }
 
     // Add station markers
@@ -124,8 +145,14 @@ export default function LiveTrainMap({ trainData }: LiveTrainMapProps) {
         );
     });
 
-    // Pan to train
-    mapRef.current.panTo(trainLatLng);
+    // Pan to train (if map exists and is initialized)
+    if (mapRef.current && mapRef.current.getContainer()) {
+      try {
+        mapRef.current.panTo(trainLatLng);
+      } catch (err) {
+        console.warn('Error panning map:', err);
+      }
+    }
 
     return () => {
       // Cleanup on unmount

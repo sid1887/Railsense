@@ -1,0 +1,22 @@
+[2026-03-09T13:20:28.725Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-09T13:20:29.268Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-09T13:20:29.273Z] [ERROR] [API] Prediction error: {"error":"Error: Dynamic server usage: Route /api/predict couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
+[2026-03-09T13:20:29.539Z] [ERROR] API Error - news: {"error":"Error: Dynamic server usage: Route /api/news couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
+[2026-03-09T13:36:01.271Z] [INFO] News API called {"query":"Indian railway","region":"IN"}
+[2026-03-09T13:36:01.271Z] [INFO] Fetching news articles {"query":"Indian railway","region":"IN"}
+[2026-03-09T13:36:02.914Z] [INFO] Parsed RSS items {"count":100}
+[2026-03-09T13:36:02.915Z] [SUCCESS] News fetch complete {"query":"Indian railway","articlesCount":3}
+[2026-03-09T13:36:30.358Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-09T13:36:30.359Z] [DEBUG] [API] Prediction request: {"region":"North","hour":15,"latitude":30.5,"longitude":75.2}
+[2026-03-09T13:43:38.513Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-09T13:43:39.009Z] [ERROR] API Error - news: {"error":"Error: Dynamic server usage: Route /api/news couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
+[2026-03-09T13:43:39.355Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-09T13:43:39.357Z] [ERROR] [API] Prediction error: {"error":"Error: Dynamic server usage: Route /api/predict couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
+[2026-03-09T13:47:28.030Z] [INFO] News API called {"query":"indian railway","region":"IN"}
+[2026-03-09T13:47:28.031Z] [INFO] Fetching news articles {"query":"indian railway","region":"IN"}
+[2026-03-09T13:47:29.299Z] [INFO] Parsed RSS items {"count":100}
+[2026-03-09T13:47:29.300Z] [SUCCESS] News fetch complete {"query":"indian railway","articlesCount":3}
+[2026-03-09T13:52:37.636Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-09T13:52:38.498Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-09T13:52:38.500Z] [ERROR] [API] Prediction error: {"error":"Error: Dynamic server usage: Route /api/predict couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
+[2026-03-09T13:52:38.521Z] [ERROR] API Error - news: {"error":"Error: Dynamic server usage: Route /api/news couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}

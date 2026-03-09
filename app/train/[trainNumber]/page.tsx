@@ -30,7 +30,6 @@ export default function TrainDetailPage() {
     trainNumber,
     {
       pollInterval: 5000, // Update every 5 seconds
-      onError: (err) => console.error('Train data fetch error:', err),
     }
   );
 
