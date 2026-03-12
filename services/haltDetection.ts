@@ -228,3 +228,111 @@ export function getHaltSeverity(haltDetection: HaltDetection): 'LOW' | 'MEDIUM' 
   if (haltDetection.haltDuration < 15) return 'MEDIUM';
   return 'HIGH';
 }
+
+/**
+ * Analyze halt from database snapshots
+ * Provides more accurate halt detection by analyzing historical movement patterns
+ * Returns null if no database available or no halt detected
+ */
+export async function analyzeHaltFromDB(
+  trainNumber: string,
+  lookbackMinutes: number = 30
+): Promise<HaltDetection | null> {
+  try {
+    // Only run on server side
+    if (typeof window !== 'undefined') {
+      return null;
+    }
+
+    const sqlite3 = require('sqlite3');
+    const { open } = require('sqlite');
+    const path = require('path');
+
+    const dbPath = path.join(process.cwd(), 'data', 'history.db');
+
+    // Try to open DB; if not exists, return null
+    let db: any;
+    try {
+      db = await open({
+        filename: dbPath,
+        driver: sqlite3.Database
+      });
+    } catch (e) {
+      return null; // DB doesn't exist yet
+    }
+
+    const startTime = Date.now() - lookbackMinutes * 60 * 1000;
+
+    // Get recent snapshots for this train
+    const snapshots = await db.all(`
+      SELECT lat, lng, speed, delay, timestamp
+      FROM train_snapshots
+      WHERE train_number = ? AND timestamp > ?
+      ORDER BY timestamp DESC
+      LIMIT 20
+    `, [trainNumber, startTime]);
+
+    await db.close();
+
+    if (!snapshots || snapshots.length < 3) {
+      return null; // Not enough data
+    }
+
+    // Analyze movement pattern
+    let staticCount = 0;
+    let minSpeed = Infinity;
+    let maxLat = -Infinity;
+    let maxLng = -Infinity;
+    let minLat = Infinity;
+    let minLng = Infinity;
+
+    for (const snap of snapshots) {
+      if (snap.speed < HALT_THRESHOLDS.SPEED_THRESHOLD) {
+        staticCount++;
+      }
+      minSpeed = Math.min(minSpeed, snap.speed || 0);
+      maxLat = Math.max(maxLat, snap.lat || 0);
+      maxLng = Math.max(maxLng, snap.lng || 0);
+      minLat = Math.min(minLat, snap.lat || 0);
+      minLng = Math.min(minLng, snap.lng || 0);
+    }
+
+    // If majority of snapshots show near-zero speed AND location variance < 0.01 degrees
+    const locationVariance = Math.max(maxLat - minLat, maxLng - minLng);
+    const isStationary = staticCount >= snapshots.length * 0.7 && locationVariance < 0.01;
+
+    if (!isStationary) {
+      return null;
+    }
+
+    // Calculate halt duration from timestamps
+    const oldestSnapshot = snapshots[snapshots.length - 1];
+    const newestSnapshot = snapshots[0];
+    const durationMs = newestSnapshot.timestamp - oldestSnapshot.timestamp;
+    const durationMinutes = durationMs / (1000 * 60);
+
+    if (durationMinutes < HALT_THRESHOLDS.MIN_HALT_DURATION) {
+      return null; // Too short to be significant
+    }
+
+    // Halt detected from DB analysis
+    const avgLat = snapshots.reduce((sum: number, s: any) => sum + (s.lat || 0), 0) / snapshots.length;
+    const avgLng = snapshots.reduce((sum: number, s: any) => sum + (s.lng || 0), 0) / snapshots.length;
+    const avgDelay = snapshots.reduce((sum: number, s: any) => sum + (s.delay || 0), 0) / snapshots.length;
+
+    return {
+      halted: true,
+      haltDuration: durationMinutes,
+      haltStartTime: oldestSnapshot.timestamp,
+      detectedAt: {
+        latitude: avgLat,
+        longitude: avgLng,
+        timestamp: newestSnapshot.timestamp,
+      },
+      reason: `Stationary for ${durationMinutes.toFixed(1)}min (${snapshots.length} observations, avg delay: ${avgDelay.toFixed(1)}min)`
+    };
+  } catch (err) {
+    console.warn('[analyzeHaltFromDB] Error:', err);
+    return null;
+  }
+}

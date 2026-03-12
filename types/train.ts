@@ -19,6 +19,8 @@ export interface TrainData {
   scheduledStations: Station[];
   currentStationIndex: number;
   delay: number; // minutes
+  status?: string; // 'Running', 'On Time', 'Delayed', etc. from NTES
+  lastUpdated?: number; // timestamp of last update from NTES
 }
 
 export interface Station {

@@ -8,10 +8,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCompleteTrainInsight } from '@/services/orchestrator';
 
 export async function GET(request: NextRequest) {
-  try {
-    // Get train number from query params
-    const trainNumber = request.nextUrl.searchParams.get('trainNumber');
+  // Get train number from query params - OUTSIDE try block for error handling
+  const trainNumber = request.nextUrl.searchParams.get('trainNumber');
 
+  try {
     if (!trainNumber) {
       return NextResponse.json(
         { error: 'Train number is required' },
@@ -30,9 +30,24 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('API Error - train-details:', error);
 
+    // Provide helpful error messages
+    let statusCode = 404;
+    let errorMessage = error.message || 'Train not found';
+
+    if (error.message && error.message.includes('not found')) {
+      errorMessage = `Train ${trainNumber} not found. The train either doesn't exist in Indian Railways or is not currently trackable. Please verify the train number and try again.`;
+    } else if (error.message && error.message.includes('required')) {
+      statusCode = 400;
+      errorMessage = 'Train number is required';
+    }
+
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch train details' },
-      { status: 404 }
+      {
+        error: errorMessage,
+        trainNumber: trainNumber,
+        suggestion: 'Try valid Indian Railways train numbers like 12955, 12728, 17015, 12702, or 11039'
+      },
+      { status: statusCode }
     );
   }
 }

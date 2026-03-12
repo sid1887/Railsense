@@ -1,168 +1,158 @@
-/**
- * Snapshot Worker Script
- * Periodically fetches tracked trains and logs snapshots for historical analysis
- * Provides data for: halt detection algorithms, ML model training, heatmap visualization
- *
- * Usage:
- *   node -r ts-node/register scripts/snapshotWorker.ts
- *
- * Environment variables:
- *   TRACKED_TRAINS - Comma-separated train numbers (default: 12702,17015,11039)
- *   INTERVAL_SECONDS - Polling interval in seconds (default: 30)
- *   DB_PATH - SQLite database path (default: data/history.db)
- */
+import { getTrainData } from '../services/trainDataService';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+import * as path from 'path';
 
-import { getLiveTrainPosition } from '../services/railYatriService';
-import { logger } from '../services/logger';
+dotenv.config();
 
-interface SnapshotConfig {
-  trackedTrains: string[];
-  intervalSeconds: number;
-  minBetweenProviders: number; // Delay between provider calls in ms
+// Get tracked trains from environment or default to test trains
+const TRACKED = (process.env.TRACKED_TRAINS || '12728,12955,17015,12702,11039').split(',');
+const COLLECT_INTERVAL = parseInt(process.env.COLLECT_INTERVAL || '30', 10) * 1000; // 30s default
+const DATA_DIR = path.join(__dirname, '../data');
+
+// Ensure data directory exists
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Configuration from environment
-const config: SnapshotConfig = {
-  trackedTrains: (process.env.TRACKED_TRAINS || '12702,17015,11039,12723,12724').split(',').map(t => t.trim()),
-  intervalSeconds: parseInt(process.env.INTERVAL_SECONDS || '30'),
-  minBetweenProviders: 300, // 300ms between calls to avoid hammering
-};
-
-let isRunning = true;
-let snapshotCount = 0;
-let errorCount = 0;
-
-/**
- * Sleep utility
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Log a snapshot to the database (if available)
- */
-async function logSnapshot(trainNumber: string, lat: number, lng: number, speed: number, delay: number, timestamp: number) {
-  try {
-    // In a real setup, this would log to SQLite
-    // For now, just log to console
-    logger.debug('Snapshot logged', {
-      train: trainNumber,
-      location: `${lat.toFixed(2)}, ${lng.toFixed(2)}`,
-      speed: `${speed.toFixed(1)} km/h`,
-      delay: `${delay.toFixed(1)} min`,
-      timestamp: new Date(timestamp).toISOString(),
-    });
-
-    snapshotCount++;
-
-    // Print progress every 10 snapshots
-    if (snapshotCount % 10 === 0) {
-      logger.success(`Snapshots collected: ${snapshotCount}`, {
-        errors: errorCount,
-        trains_tracked: config.trackedTrains.length,
-      });
-    }
-  } catch (err) {
-    logger.error('Failed to log snapshot:', err);
-    errorCount++;
-  }
-}
-
-/**
- * Fetch and process single train
- */
-async function fetchTrainSnapshot(trainNumber: string): Promise<boolean> {
-  try {
-    const liveData = await getLiveTrainPosition(trainNumber);
-
-    if (liveData) {
-      await logSnapshot(
-        trainNumber,
-        liveData.lat,
-        liveData.lng,
-        liveData.speed || 0,
-        liveData.delay || 0,
-        (liveData.timestamp || Math.floor(Date.now() / 1000)) * 1000
-      );
-      return true;
-    }
-
-    return false;
-  } catch (err) {
-    logger.debug(`Failed to fetch train ${trainNumber}:`, err);
-    return false;
-  }
-}
-
-/**
- * Main worker loop
- */
-async function runWorker() {
-  logger.success('🚂 Snapshot Worker Started', {
-    trains_count: config.trackedTrains.length,
-    interval_seconds: config.intervalSeconds,
-    trains: config.trackedTrains.join(', '),
+async function ensureDb() {
+  const db = await open({
+    filename: path.join(DATA_DIR, 'history.db'),
+    driver: sqlite3.Database
   });
 
-  let cycleCount = 0;
+  // Enable foreign keys and WAL mode for better concurrency
+  await db.exec('PRAGMA journal_mode = WAL;');
+  await db.exec('PRAGMA foreign_keys = ON;');
 
-  while (isRunning) {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS train_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      train_number TEXT NOT NULL,
+      lat REAL,
+      lng REAL,
+      speed REAL,
+      delay REAL,
+      timestamp INTEGER NOT NULL,
+      source TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // Add indexes for efficient queries
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_train_ts
+    ON train_snapshots(train_number, timestamp DESC);
+  `);
+
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_ts
+    ON train_snapshots(timestamp DESC);
+  `);
+
+  return db;
+}
+
+async function collectSnapshots(db: any) {
+  console.log(`\n[${new Date().toISOString()}] Starting snapshot collection for ${TRACKED.length} trains...`);
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const trainNumber of TRACKED) {
+    const tn = trainNumber.trim();
+    if (!tn) continue;
+
     try {
-      cycleCount++;
-      logger.info(`📸 Snapshot cycle ${cycleCount}...`);
+      const data = await getTrainData(tn);
 
-      // Fetch all trains with staggered timing
-      for (const trainNumber of config.trackedTrains) {
-        if (!isRunning) break;
-
-        const success = await fetchTrainSnapshot(trainNumber);
-
-        // Small delay between fetches to avoid bursts
-        await sleep(config.minBetweenProviders);
+      if (!data) {
+        console.warn(`  ✗ ${tn} - No data returned`);
+        failCount++;
+        continue;
       }
 
-      // Wait for next cycle
-      logger.debug(`⏳ Waiting ${config.intervalSeconds}s until next cycle...`);
-      await sleep(config.intervalSeconds * 1000);
-    } catch (err) {
-      logger.error('Worker error:', err);
-      errorCount++;
-      await sleep(5000); // Backoff on error
+      const ts = Date.now();
+      const lat = data.currentLocation?.latitude ?? null;
+      const lng = data.currentLocation?.longitude ?? null;
+      const speed = data.speed ?? 0;
+      const delay = data.delay ?? 0;
+      const source = data.source ?? 'unknown';
+
+      await db.run(`
+        INSERT INTO train_snapshots
+        (train_number, lat, lng, speed, delay, timestamp, source)
+        VALUES (?,?,?,?,?,?,?)
+      `, [tn, lat, lng, speed, delay, ts, source]);
+
+      console.log(`  ✓ ${tn} - lat=${lat?.toFixed(2)}, delay=${delay}min, source=${source}`);
+      successCount++;
+    } catch (e) {
+      console.error(`  ✗ ${tn} - Error:`, (e as any).message || e);
+      failCount++;
     }
+
+    // Small sleep to avoid burst requests
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  console.log(`[Collection] Complete - Success: ${successCount}, Failed: ${failCount}`);
+
+  // Log DB stats
+  try {
+    const count = await db.get('SELECT COUNT(*) as cnt FROM train_snapshots');
+    const oldest = await db.get('SELECT timestamp FROM train_snapshots ORDER BY timestamp ASC LIMIT 1');
+    const newest = await db.get('SELECT timestamp FROM train_snapshots ORDER BY timestamp DESC LIMIT 1');
+
+    if (count && count.cnt > 0) {
+      const ageMinutes = ((Date.now() - (oldest?.timestamp || 0)) / 1000 / 60).toFixed(1);
+      console.log(`[DB Stats] Total snapshots: ${count.cnt}, Age: ${ageMinutes}min`);
+    }
+  } catch (e) {
+    // ignore stats errors
   }
 }
 
-/**
- * Graceful shutdown
- */
-function handleShutdown() {
-  logger.info('🛑 Shutdown signal received');
-  isRunning = false;
+async function main() {
+  console.log('=== Snapshot Worker Started ===');
+  console.log(`Tracked trains: ${TRACKED.length}`);
+  console.log(`Collection interval: ${COLLECT_INTERVAL / 1000}s`);
+  console.log(`Data directory: ${DATA_DIR}`);
 
-  // Give worker time to finish current cycle
-  setTimeout(() => {
-    logger.success('📊 Worker shutdown complete', {
-      snapshots_collected: snapshotCount,
-      errors: errorCount,
-    });
-    process.exit(0);
-  }, 5000);
-}
+  let db: any;
+  try {
+    db = await ensureDb();
+    console.log('✓ Database initialized');
 
-/**
- * Entry point
- */
-if (require.main === module) {
-  // Handle shutdown signals
-  process.on('SIGINT', handleShutdown);
-  process.on('SIGTERM', handleShutdown);
+    // Initial collection
+    await collectSnapshots(db);
 
-  // Start worker
-  runWorker().catch((err) => {
-    logger.error('Worker failed:', err);
+    // Set up interval
+    setInterval(() => collectSnapshots(db), COLLECT_INTERVAL);
+    console.log('✓ Periodic collection started');
+
+    // Keep process alive
+    console.log('Worker running... (Ctrl+C to stop)');
+  } catch (e) {
+    console.error('Fatal error:', e);
     process.exit(1);
-  });
+  }
 }
 
-export { runWorker, fetchTrainSnapshot };
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('\n[Shutdown] Stopping worker...');
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  console.log('\n[Shutdown] Stopping worker...');
+  process.exit(0);
+});
+
+main().catch(e => {
+  console.error('Worker error:', e);
+  process.exit(1);
+});

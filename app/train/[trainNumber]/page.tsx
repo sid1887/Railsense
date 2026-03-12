@@ -1,19 +1,34 @@
 'use client';
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useTrainData } from '@/hooks/useTrainData';
-import LiveTrainMap from '@/components/LiveTrainMap';
 import RouteTimeline from '@/components/RouteTimeline';
 import HaltStatusCard from '@/components/HaltStatusCard';
+import TrainStatusStrip from '@/components/TrainStatusStrip';
+import LiveStatusBadge from '@/components/LiveStatusBadge';
 import UncertaintyGauge from '@/components/UncertaintyGauge';
 import TrafficIndicator from '@/components/TrafficIndicator';
 import PredictionCard from '@/components/PredictionCard';
 import InsightPanel from '@/components/InsightPanel';
 import CongestionHeatmap from '@/components/CongestionHeatmap';
+
+// Dynamic imports for browser-only components
+const LiveTrainMap = dynamic(() => import('@/components/LiveTrainMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="h-96 bg-dark-card rounded-lg flex items-center justify-center border border-dark-border">
+      <div className="text-center">
+        <div className="inline-block w-8 h-8 border-4 border-accent-blue border-t-transparent rounded-full animate-spin mb-2" />
+        <p className="text-text-secondary">Loading map...</p>
+      </div>
+    </div>
+  ),
+});
 
 /**
  * Train Detail Page
@@ -86,15 +101,33 @@ export default function TrainDetailPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1 className="text-4xl md:text-5xl font-bold mb-2">
-              {insightData.trainData.trainName}
-            </h1>
-            <p className="text-xl text-text-secondary">
-              Train #{insightData.trainData.trainNumber} • {insightData.trainData.source} → {insightData.trainData.destination}
-            </p>
+            <div className="flex items-start justify-between mb-4 flex-wrap gap-4">
+              <div>
+                <h1 className="text-4xl md:text-5xl font-bold">
+                  {insightData.trainData.trainName}
+                </h1>
+                <p className="text-xl text-text-secondary mt-2">
+                  Train #{insightData.trainData.trainNumber} • {insightData.trainData.source} → {insightData.trainData.destination}
+                </p>
+              </div>
+              {/* LiveStatusBadge temporarily disabled - will re-enable with fixes */}
+              {/* <LiveStatusBadge trainNumber={insightData.trainData.trainNumber} /> */}
+            </div>
           </motion.div>
         ) : null}
       </div>
+
+      {/* NTES Status Strip - Real-time data from Indian Railways */}
+      {insightData && (
+        <div className="max-w-7xl mx-auto">
+          <TrainStatusStrip
+            status={insightData.trainData.status}
+            delay={insightData.trainData.delay}
+            speed={insightData.trainData.speed}
+            lastUpdated={insightData.trainData.lastUpdated}
+          />
+        </div>
+      )}
 
       {/* Main Content - Full Components Integration */}
       <div className="max-w-7xl mx-auto">

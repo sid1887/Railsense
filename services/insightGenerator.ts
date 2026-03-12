@@ -159,7 +159,8 @@ function generateDetails(
       detail += `${haltDetection.reason}. `;
     }
   } else {
-    detail = `Train currently between ${currentStation} and ${nextStation}. Current delay: ${trainData.delay.toFixed(1)} minutes. `;
+    const delay = trainData.delay ?? 0;
+    detail = `Train currently between ${currentStation} and ${nextStation}. Current delay: ${delay.toFixed(1)} minutes. `;
   }
 
   // Traffic context
@@ -167,8 +168,12 @@ function generateDetails(
     detail += `${trafficAnalysis.nearbyTrainsCount} other train${trafficAnalysis.nearbyTrainsCount > 1 ? 's' : ''} detected nearby, causing ${trafficAnalysis.congestionLevel.toLowerCase()} congestion. `;
   }
 
-  // Prediction
-  detail += `Expected movement window: ${prediction.minWait.toFixed(0)}–${prediction.maxWait.toFixed(0)} minutes.`;
+  // Prediction - with safety check
+  if (prediction && prediction.minWait !== undefined && prediction.maxWait !== undefined) {
+    detail += `Expected movement window: ${prediction.minWait.toFixed(0)}–${prediction.maxWait.toFixed(0)} minutes.`;
+  } else {
+    detail += `Movement estimate: Unable to calculate at this time.`;
+  }
 
   return detail;
 }
