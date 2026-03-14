@@ -250,5 +250,36 @@ export async function detectHaltWithDB(
   secondsWindow: number = 300
 ): Promise<HaltDetectionResult> {
   const history = await getLastSnapshotsFromDB(db, trainNumber, secondsWindow);
-  return detectHaltFromHistory(history, scheduledStations);
+  const result = detectHaltFromHistory(history, scheduledStations);
+
+  // Record significant halts to database
+  if ((result.halted || result.is_scheduled_stop) && result.confidence >= 0.6 && result.halt_duration_sec >= 600) {
+    try {
+      const snapshotDb = require('./snapshotDatabase').default;
+      if (snapshotDb && snapshotDb.recordHaltEvent) {
+        const station = scheduledStations && scheduledStations.length > 0 ? scheduledStations[0] : undefined;
+
+        await snapshotDb.recordHaltEvent({
+          trainNumber,
+          sectionCode: station?.code || 'UNKNOWN',
+          sectionName: station?.name || 'Unknown Section',
+          haltStartTime: new Date(Date.now() - result.halt_duration_sec * 1000).toISOString(),
+          haltEndTime: null,
+          haltDurationSeconds: result.halt_duration_sec,
+          haltReason: result.reason_candidates[0]?.label || 'Operational halt',
+          estimatedCause: result.reason_candidates[0]?.id || 'unknown',
+          haltConfidence: result.confidence,
+          isScheduledStop: result.is_scheduled_stop,
+        });
+
+        console.log(
+          `[HaltDetectionV2] Recorded halt for ${trainNumber}: ${result.halt_duration_sec}s at ${result.confidence * 100}% confidence`
+        );
+      }
+    } catch (e) {
+      console.warn(`[HaltDetectionV2] Failed to record halt to database:`, e);
+    }
+  }
+
+  return result;
 }

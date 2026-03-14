@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
 import ToastContainer from '@/components/ToastContainer';
@@ -6,10 +6,14 @@ import ToastContainer from '@/components/ToastContainer';
 export const metadata: Metadata = {
   title: 'RailSense - Intelligent Train Halt Insight System',
   description: 'Real-time train tracking and intelligent halt analysis for passenger clarity',
-  viewport: 'width=device-width, initial-scale=1',
   icons: {
     icon: '/favicon.ico',
   },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
 };
 
 export default function RootLayout({

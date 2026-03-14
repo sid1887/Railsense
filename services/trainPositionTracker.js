@@ -11,6 +11,25 @@
  */
 
 const REAL_TRAINS = require('./realTrainsDatabase');
+let EXTRA_TRAINS = {};
+
+try {
+  const extra = require('../data/extra-trains.json');
+  if (Array.isArray(extra)) {
+    EXTRA_TRAINS = extra.reduce((acc, train) => {
+      if (train && train.trainNumber) {
+        acc[train.trainNumber] = train;
+      }
+      return acc;
+    }, {});
+  } else if (extra && typeof extra === 'object') {
+    EXTRA_TRAINS = extra;
+  }
+} catch (err) {
+  EXTRA_TRAINS = {};
+}
+
+const ALL_TRAINS = { ...REAL_TRAINS, ...EXTRA_TRAINS };
 
 class TrainPositionTracker {
   constructor() {
@@ -35,7 +54,7 @@ class TrainPositionTracker {
    * Returns realistic position based on current time vs departure time
    */
   getCurrentPosition(trainNumber) {
-    const train = REAL_TRAINS[trainNumber];
+    const train = ALL_TRAINS[trainNumber];
     if (!train) return null;
 
     const now = new Date();
@@ -132,8 +151,9 @@ class TrainPositionTracker {
       speed = 0; // Train at station
     }
 
-    // Calculate delay (typically 0-5 minutes for on-time trains)
-    const delay = Math.random() > 0.7 ? Math.floor(Math.random() * 8) : 0; // 70% on-time, 30% slight delay
+    // Calculate deterministic delay to avoid random noise in analytics
+    const delaySeed = (parseInt(trainNumber.slice(-2), 10) + now.getHours()) % 10;
+    const delay = delaySeed >= 8 ? delaySeed - 7 : 0; // 0-3 minutes, stable within the hour
 
     // Calculate overall progress percentage
     const totalProgress = (elapsedMinutes / train.duration) * 100;
@@ -180,7 +200,7 @@ class TrainPositionTracker {
    * Get detailed train info with all route data
    */
   getTrainInfo(trainNumber) {
-    const train = REAL_TRAINS[trainNumber];
+    const train = ALL_TRAINS[trainNumber];
     if (!train) return null;
 
     return {
@@ -208,28 +228,31 @@ class TrainPositionTracker {
    * Check if train number is valid
    */
   isValidTrain(trainNumber) {
-    return !!REAL_TRAINS[trainNumber];
+    return !!ALL_TRAINS[trainNumber];
   }
 
   /**
    * Get all available trains
    */
   getAllTrains() {
-    return Object.keys(REAL_TRAINS).map(num => ({
+    return Object.keys(ALL_TRAINS).map(num => ({
       trainNumber: num,
-      trainName: REAL_TRAINS[num].trainName,
-      source: REAL_TRAINS[num].source,
-      destination: REAL_TRAINS[num].destination,
-      distance: REAL_TRAINS[num].distance,
+      trainName: ALL_TRAINS[num].trainName,
+      source: ALL_TRAINS[num].source,
+      destination: ALL_TRAINS[num].destination,
+      distance: ALL_TRAINS[num].distance,
     }));
   }
 
+  getAllTrainNumbers() {
+    return Object.keys(ALL_TRAINS);
+  }
   /**
    * Get trains currently near a location (within radius)
    */
   getTrainsNearLocation(latitude, longitude, radiusKm = 50) {
     const nearbyTrains = [];
-    const allTrains = Object.values(REAL_TRAINS);
+    const allTrains = Object.values(ALL_TRAINS);
 
     for (const train of allTrains) {
       const position = this.getCurrentPosition(train.trainNumber);

@@ -3,6 +3,7 @@
  * Returns aggregated train movement heatmap data
  * Fetches historical snapshots from SQLite and groups into grid buckets
  */
+'use server';
 
 import { NextRequest, NextResponse } from 'next/server';
 import sqlite3 from 'sqlite3';

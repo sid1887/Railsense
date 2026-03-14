@@ -7,12 +7,20 @@ export interface TrainLocation {
   latitude: number;
   longitude: number;
   timestamp: number;
+  // Track snapping metadata (optional)
+  snappingDistance?: number; // km from original position
+  trackSegmentId?: string; // ID of snapped track segment
+  trackSegmentName?: string; // Name of snapped track segment
 }
+
+export type TrainDataSource = 'ntes' | 'railyatri' | 'schedule' | 'synthetic' | 'merged';
 
 export interface TrainData {
   trainNumber: string;
   trainName: string;
-  source: string;
+  source: TrainDataSource;
+  dataQuality: number; // 0-100 score
+  isSynthetic: boolean;
   destination: string;
   currentLocation: TrainLocation;
   speed: number; // km/h, 0 if halted
@@ -20,7 +28,7 @@ export interface TrainData {
   currentStationIndex: number;
   delay: number; // minutes
   status?: string; // 'Running', 'On Time', 'Delayed', etc. from NTES
-  lastUpdated?: number; // timestamp of last update from NTES
+  lastUpdated: number; // timestamp of last update
 }
 
 export interface Station {

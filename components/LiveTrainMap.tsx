@@ -194,6 +194,13 @@ export default function LiveTrainMap({ trainData }: LiveTrainMapProps) {
         <p className="mt-1">
           <span className="text-accent-blue font-semibold">Speed:</span> {trainData.speed} km/h
         </p>
+        <p className="mt-1">
+          <span className="text-accent-blue font-semibold">Source:</span> {trainData.source}
+        </p>
+        <p className="mt-1">
+          <span className="text-accent-blue font-semibold">Quality:</span> {trainData.dataQuality}/100
+          {trainData.isSynthetic ? ' (synthetic)' : ''}
+        </p>
       </motion.div>
 
       {/* Legend */}

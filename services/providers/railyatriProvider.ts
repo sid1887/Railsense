@@ -6,7 +6,7 @@
  * Complements NTES: NTES has status, RailYatri has coordinates
  */
 
-import { ProviderResult, TrainProvider } from './providerAdapter';
+import { ProviderResult, TrainProvider } from '../providerAdapter';
 
 export interface RailYatriData {
   trainNumber: string;
@@ -36,6 +36,7 @@ class RailYatriProvider implements TrainProvider {
 
   /**
    * Fetch live position for a train from RailYatri
+   * Attempts real API first, falls back to mock
    */
   async getStatus(trainNumber: string): Promise<ProviderResult | null> {
     const start = Date.now();
@@ -47,9 +48,24 @@ class RailYatriProvider implements TrainProvider {
         return this._railyatriToProviderResult(cached.data, cached.timestamp);
       }
 
-      // In production: call RailYatri API
-      // For now: return mock GPS data
-      const railyatriData = await this._mockFetchFromRailYatri(trainNumber);
+      let railyatriData: RailYatriData | null = null;
+
+      // Try real RailYatri API first (with timeout)
+      try {
+        console.log(`[RailYatri] Attempting real API for train ${trainNumber}...`);
+        railyatriData = await this._fetchFromRealAPI(trainNumber);
+        if (railyatriData) {
+          console.log(`[RailYatri] Got real data for train ${trainNumber}`);
+        }
+      } catch (apiError) {
+        console.warn(`[RailYatri] Real API failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`);
+      }
+
+      // Fall back to mock if API failed
+      if (!railyatriData) {
+        console.log(`[RailYatri] Falling back to mock data for train ${trainNumber}`);
+        railyatriData = await this._mockFetchFromRailYatri(trainNumber);
+      }
 
       if (!railyatriData) {
         this.recordFailure('No RailYatri GPS data found');
@@ -73,6 +89,100 @@ class RailYatriProvider implements TrainProvider {
   }
 
   /**
+   * Attempt to fetch from real RailYatri API
+   */
+  private async _fetchFromRealAPI(trainNumber: string): Promise<RailYatriData | null> {
+    const endpoints = [
+      `https://www.railyatri.in/api/v1/live/train/${trainNumber}`,
+      `https://railyatri.in/api/train/live/${trainNumber}`,
+      `https://api.railyatri.in/v1/train/${trainNumber}/live`,
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'RailSense/1.0 (+http://railsense.local)',
+            'Accept': 'application/json',
+          },
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          console.warn(`[RailYatri] Endpoint ${endpoint} returned ${response.status}`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        // Try to parse response (RailYatri API format may vary)
+        const trainData = this._parseRailYatriResponse(data, trainNumber);
+        if (trainData) {
+          return trainData;
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.warn(`[RailYatri] Endpoint ${endpoint} timed out`);
+        } else {
+          console.warn(`[RailYatri] Endpoint ${endpoint} error: ${error instanceof Error ? error.message : 'Unknown'}`);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Parse RailYatri API response (handles multiple response formats)
+   */
+  private _parseRailYatriResponse(data: any, trainNumber: string): RailYatriData | null {
+    try {
+      // Try different response formats
+      let trainData = data;
+
+      // Sometimes response is wrapped in a "data" or "train" property
+      if (data && typeof data === 'object') {
+        if (data.train) trainData = data.train;
+        else if (data.data) trainData = data.data;
+        else if (data.result) trainData = data.result;
+      }
+
+      // Check for required fields
+      if (!trainData || typeof trainData !== 'object') {
+        return null;
+      }
+
+      const hasLatLng = (trainData.lat || trainData.latitude) && (trainData.lng || trainData.longitude);
+      const hasTrainNumber = trainData.trainNo || trainData.trainNumber || trainData.train_number || trainData.number;
+
+      if (!hasLatLng || !hasTrainNumber) {
+        return null;
+      }
+
+      // Normalize response
+      return {
+        trainNumber: trainData.trainNo || trainData.trainNumber || trainData.train_number || trainNumber,
+        lat: trainData.lat || trainData.latitude || 0,
+        lng: trainData.lng || trainData.longitude || 0,
+        speed: trainData.speed || trainData.currentSpeed || 0,
+        accuracy: trainData.accuracy || trainData.gpsAccuracy || 50,
+        boardedPassengers: trainData.passengers || trainData.boarded || 0,
+        crowdLevel: trainData.crowdLevel || trainData.crowd || 'NORMAL',
+        lastReportAge: trainData.time_ago || trainData.lastReportAge || 0,
+      };
+    } catch (error) {
+      console.warn(`[RailYatri] Parse error: ${error instanceof Error ? error.message : 'Unknown'}`);
+      return null;
+    }
+  }
+
+  /**
    * Convert RailYatri format to ProviderResult
    */
   private _railyatriToProviderResult(data: RailYatriData, timestamp: number): ProviderResult {
@@ -81,8 +191,7 @@ class RailYatriProvider implements TrainProvider {
       lat: data.lat,
       lng: data.lng,
       speed: data.speed,
-      delay: null, // RailYatri doesn't provide delay info
-      status: null,
+      // RailYatri doesn't provide delay or status info
       timestamp,
       source: 'railyatri',
       raw: data,

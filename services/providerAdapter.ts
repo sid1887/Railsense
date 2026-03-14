@@ -7,6 +7,7 @@
 import { ntesProvider } from './providers/ntesProvider';
 import { railyatriProvider } from './providers/railyatriProvider';
 import { getTrainData } from './trainDataService';
+import type { TrainDataSource } from '@/types/train';
 
 export interface ProviderResult {
   trainNumber: string;
@@ -16,6 +17,8 @@ export interface ProviderResult {
   delay?: number;
   status?: string;
   timestamp?: number;
+  source?: TrainDataSource;
+  sources?: TrainDataSource[];
   raw?: any;
 }
 
@@ -197,6 +200,10 @@ export async function getLiveTrainDataMerged(
     // Merge results - position takes precedence for coords, status for delay
     let merged = mergeProviderResults(statusResult, positionResult);
 
+    const sources: TrainDataSource[] = [];
+    if (statusResult) sources.push('ntes');
+    if (positionResult) sources.push('railyatri');
+
     // If both providers failed, try fallback to realTrainDataProvider
     if (!merged) {
       console.log(`[Orchestrator] Both NTES and RailYatri failed, trying real schedule...`);
@@ -210,7 +217,19 @@ export async function getLiveTrainDataMerged(
           delay: trainData.delay,
           status: trainData.status,
           timestamp: trainData.lastUpdated,
+          source: 'schedule',
+          sources: ['schedule'],
         };
+      }
+    }
+
+    if (merged) {
+      if (sources.length > 1) {
+        merged.source = 'merged';
+        merged.sources = sources;
+      } else if (sources.length === 1) {
+        merged.source = sources[0];
+        merged.sources = sources;
       }
     }
 

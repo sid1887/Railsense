@@ -20,3 +20,22 @@
 [2026-03-09T13:52:38.498Z] [WARN] ML model not found. Run: python scripts/train_model.py
 [2026-03-09T13:52:38.500Z] [ERROR] [API] Prediction error: {"error":"Error: Dynamic server usage: Route /api/predict couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
 [2026-03-09T13:52:38.521Z] [ERROR] API Error - news: {"error":"Error: Dynamic server usage: Route /api/news couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
+[2026-03-14T04:08:32.293Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T04:08:32.987Z] [ERROR] [API] Prediction error: {"error":"Error: Dynamic server usage: Route /api/predict couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
+[2026-03-14T04:08:33.249Z] [ERROR] API Error - news: {"error":"Error: Dynamic server usage: Route /api/news couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
+[2026-03-14T04:21:27.825Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T04:21:28.376Z] [ERROR] [API] Prediction error: {"error":"Error: Dynamic server usage: Route /api/predict couldn't be rendered statically because it used `nextUrl.searchParams`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error"}
+[2026-03-14T04:23:51.076Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T05:40:06.304Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T05:44:19.960Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T05:45:41.673Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T05:46:10.555Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T05:49:49.785Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T05:55:18.937Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T06:03:05.890Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T06:03:31.103Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T06:03:57.470Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T06:17:39.062Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T06:18:00.231Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T06:26:53.790Z] [WARN] ML model not found. Run: python scripts/train_model.py
+[2026-03-14T06:27:17.652Z] [WARN] ML model not found. Run: python scripts/train_model.py

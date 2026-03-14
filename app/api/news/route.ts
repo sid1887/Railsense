@@ -9,6 +9,8 @@ import type { NewsResponse } from '@/services/newsService';
 import { fetchNews } from '@/services/newsService';
 import { logger } from '@/services/logger';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const query = request.nextUrl.searchParams.get('query') || 'Indian railway';

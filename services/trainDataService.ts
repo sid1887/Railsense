@@ -4,24 +4,58 @@
  * No mock data, no simulation - only real operational data
  */
 
-import { TrainData } from '@/types/train';
+import { TrainData, TrainDataSource } from '@/types/train';
+import { getLiveTrainDataMerged } from './providerAdapter';
 
 // Real data providers
 let trainTracker: any = null;
 let haltDetector: any = null;
+let snapshotDatabase: any = null;
+let mapTrackSnapping: any = null;
 
 if (typeof window === 'undefined') {
   try {
     trainTracker = require('./trainPositionTracker');
     haltDetector = require('./realHaltDetection');
+    snapshotDatabase = require('./snapshotDatabase').default;
+    mapTrackSnapping = require('./mapTrackSnapping').default;
   } catch (e) {
     console.error('[DataService] Failed to load real data providers:', e);
   }
 }
 
-// Real data cache (with 60s TTL since position is calculated real-time from schedule)
+// Real data cache (short TTL to allow live updates)
 const dataCache = new Map<string, { data: TrainData | null; timestamp: number }>();
-const CACHE_TTL = 60 * 1000; // 60 seconds - position updates based on schedule
+const CACHE_TTL = 30 * 1000; // 30 seconds
+
+function computeDataQuality(
+  source: TrainDataSource,
+  sources: TrainDataSource[],
+  hasLiveCoords: boolean
+) {
+  let score = 40;
+  let isSynthetic = false;
+
+  if (source === 'merged' || (sources.includes('ntes') && sources.includes('railyatri'))) {
+    score = 85;
+  } else if (source === 'ntes') {
+    score = 70;
+  } else if (source === 'railyatri') {
+    score = 65;
+  } else if (source === 'schedule') {
+    score = 40;
+    isSynthetic = true;
+  } else if (source === 'synthetic') {
+    score = 25;
+    isSynthetic = true;
+  }
+
+  if (!hasLiveCoords) {
+    score = Math.max(20, score - 10);
+  }
+
+  return { score, isSynthetic };
+}
 
 function getCachedData(trainNumber: string): TrainData | null | undefined {
   const key = trainNumber.toUpperCase();
@@ -66,7 +100,7 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
   try {
     console.log(`\n[DataService] ========== FETCHING REAL DATA FOR TRAIN ${normalized} ==========`);
 
-    // Only source: Real train position tracker (uses verified IR database)
+    // Ensure schedule data is available for route metadata
     if (!trainTracker) {
       console.error('[DataService] ✗ Real train tracker not initialized');
       setCachedData(normalized, null);
@@ -75,11 +109,12 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
 
     console.log(`[DataService] Querying real train database...`);
 
-    // Get current position from real schedule
+    // Get current position from real schedule (fallback for coords)
     const positionData = trainTracker.getCurrentPosition(normalized);
     if (!positionData) {
       console.log(`[DataService] ✗ Train ${normalized} NOT found in real database`);
-      console.log(`[DataService] Trains available: 12955, 13345, 14645, 15906`);
+      const available = trainTracker.getAllTrainNumbers?.() || [];
+      console.log(`[DataService] Trains available: ${available.join(', ')}`);
       setCachedData(normalized, null);
       return null;
     }
@@ -98,52 +133,127 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
       try {
         haltDetector.recordPosition(normalized, positionData);
         const haltAnalysis = haltDetector.detectHalt(normalized, positionData);
-        if (haltAnalysis) {
+        if (haltAnalysis && haltAnalysis.isHalted) {
           haltInfo = haltAnalysis;
+
+          // Record halt event to analytics database
+          if (snapshotDatabase && haltInfo.sectionCode && haltInfo.stationName) {
+            try {
+              await snapshotDatabase.recordHaltEvent({
+                trainNumber: normalized,
+                sectionCode: haltInfo.sectionCode,
+                sectionName: haltInfo.stationName || haltInfo.reason,
+                haltStartTime: haltInfo.startTime || new Date().toISOString(),
+                haltEndTime: haltInfo.endTime || null,
+                haltDurationSeconds: haltInfo.duration || 0,
+                haltReason: haltInfo.reason || 'Unknown',
+                estimatedCause: haltInfo.estimatedCause || null,
+                haltConfidence: haltInfo.confidence || 0.5,
+                isScheduledStop: haltInfo.isScheduledStop || false,
+              });
+              console.log(`[DataService] Recorded halt event for ${normalized}`);
+            } catch (dbError) {
+              console.warn(`[DataService] Failed to record halt event: ${dbError}`);
+            }
+          }
         }
       } catch (e) {
         console.warn(`[DataService] Could not analyze halt status: ${e}`);
       }
     }
 
-    // Build TrainData from REAL sources only
+    // Try to merge live data (NTES + RailYatri)
+    const liveData = await getLiveTrainDataMerged(normalized);
+    const source = liveData?.source || 'schedule';
+    const sources = liveData?.sources || [source];
+
+    const hasLiveCoords = Boolean(liveData?.lat && liveData?.lng);
+    let coords = hasLiveCoords
+      ? { latitude: liveData!.lat!, longitude: liveData!.lng!, timestamp: liveData!.timestamp || Date.now() }
+      : { latitude: positionData.lat, longitude: positionData.lng, timestamp: Date.now() };
+
+    // Snap coordinates to railway track network for accuracy
+    if (mapTrackSnapping && coords.latitude && coords.longitude) {
+      try {
+        const snappedPos = mapTrackSnapping.snapToNearestTrack(coords.latitude, coords.longitude);
+        if (snappedPos) {
+          coords = {
+            latitude: snappedPos.snapped.latitude,
+            longitude: snappedPos.snapped.longitude,
+            timestamp: coords.timestamp,
+            snappingDistance: parseFloat(snappedPos.distance.toFixed(2)),
+            trackSegmentId: snappedPos.trackSegment.id,
+            trackSegmentName: snappedPos.trackSegment.name,
+          } as any;
+          console.log(`[DataService] ✓ Snapped position to track ${snappedPos.trackSegment.name} (≈${snappedPos.distance.toFixed(2)}km)`);
+        }
+      } catch (snapError) {
+        console.warn(`[DataService] Track snapping failed: ${snapError}`);
+        // Continue with original coordinates if snapping fails
+      }
+    }
+
+    const { score: dataQuality, isSynthetic } = computeDataQuality(
+      source,
+      sources,
+      hasLiveCoords
+    );
+
+    // Build TrainData using live data when possible
     const trainData: TrainData = {
       // Core fields from real database
       trainNumber: trainInfo.trainNumber,
       trainName: trainInfo.trainName,
       destination: trainInfo.destination,
 
-      // Real-time position (calculated from schedule)
-      currentLocation: {
-        latitude: positionData.lat,
-        longitude: positionData.lng,
-        timestamp: Date.now(),
-      },
+      // Data quality metadata
+      source,
+      dataQuality,
+      isSynthetic,
+      lastUpdated: liveData?.timestamp || Date.now(),
+
+      // Real-time position (live when available, schedule fallback)
+      currentLocation: coords,
 
       // Real speed and delay
-      speed: positionData.speed,
-      delay: positionData.delay_minutes ?? 0,
-      status: haltInfo.isHalted ? 'Halted' : (positionData.status || 'Running'),
+      speed: liveData?.speed ?? positionData.speed,
+      delay: liveData?.delay ?? positionData.delay_minutes ?? positionData.delay ?? 0,
+      status: haltInfo.isHalted ? 'Halted' : (liveData?.status || positionData.status || 'Running'),
 
       // Scheduled stations from real IR database
-      scheduledStations: (trainInfo.stations || []).map((station: any) => ({
-        name: station.name,
-        code: station.code,
-        scheduledArrival: station.arrivalTime || '00:00',
-        estimatedArrival: station.arrivalTime || '00:00',
-        scheduledDeparture: station.departureTime || '00:00',
-        estimatedDeparture: station.departureTime || '00:00',
-        latitude: station.lat,
-        longitude: station.lng,
-        isHalted: haltInfo.isHalted && station.code === positionData.currentStation?.code
-      })) || [],
+      scheduledStations: (trainInfo.stations || []).map((station: any) => {
+        let stationCoords = {
+          latitude: station.lat,
+          longitude: station.lng,
+        };
+
+        // Snap station coordinates to track network
+        if (mapTrackSnapping && stationCoords.latitude && stationCoords.longitude) {
+          try {
+            const snapped = mapTrackSnapping.snapToNearestTrack(stationCoords.latitude, stationCoords.longitude);
+            if (snapped) {
+              stationCoords = snapped.snapped;
+            }
+          } catch (e) {
+            // Keep original station coordinates if snapping fails
+          }
+        }
+
+        return {
+          name: station.name,
+          code: station.code,
+          scheduledArrival: station.arrivalTime || '00:00',
+          estimatedArrival: station.arrivalTime || '00:00',
+          scheduledDeparture: station.departureTime || '00:00',
+          estimatedDeparture: station.departureTime || '00:00',
+          latitude: stationCoords.latitude,
+          longitude: stationCoords.longitude,
+          isHalted: haltInfo.isHalted && station.code === positionData.currentStation?.code
+        };
+      }) || [],
 
       // Current station info - find index of current station from position data
       currentStationIndex: trainInfo.stations?.findIndex((s: any) => s.name === positionData.currentStation) || 0,
-
-      // Metadata - REAL DATA ONLY
-      source: trainInfo.source || 'real-schedule',
-      lastUpdated: Date.now(),
     };
 
     console.log(`[DataService] ✓ SUCCESS: Real data loaded for train ${normalized}`);
@@ -194,7 +304,7 @@ export async function getNearbyTrainsData(latitude?: number, longitude?: number,
 
     // If no location provided, return all tracked trains
     console.log('[DataService] Fetching all tracked trains...');
-    const allTrains = ['12955', '13345', '14645', '15906']; // Real trains in database
+    const allTrains = trainTracker.getAllTrainNumbers?.() || [];
 
     const trainDataArray: TrainData[] = [];
     for (const trainNumber of allTrains) {
@@ -259,7 +369,7 @@ export async function searchTrains(query: string): Promise<TrainData[]> {
     }
 
     // Try partial match in train numbers (12955, 13345, 14645, 15906)
-    const allTrains = ['12955', '13345', '14645', '15906'];
+    const allTrains = trainTracker.getAllTrainNumbers?.() || [];
     const matchingTrains: TrainData[] = [];
 
     for (const trainNumber of allTrains) {

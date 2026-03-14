@@ -62,7 +62,7 @@ export function useTrainInsight(
     loading: isLoading,
     validating: isValidating,
     error,
-    refresh: () => mutate(url, true), // Force refresh
+    refresh: () => mutate(), // Force refresh
     trainData: data?.trainData,
     haltDetection: data?.haltDetection,
     trafficAnalysis: data?.trafficAnalysis,

@@ -15,13 +15,14 @@ const metrics = {
   ntesSuccesses: 0,
   errors: 0,
   avgResponseTime: 0,
-  responseTimes: [] as number[]
+  responseTimes: [] as number[],
+  ntesWebScrapingIssues: 0
 };
 
 /**
  * Record a request metric
  */
-export function recordRequest(
+function recordRequest(
   source: 'cache' | 'ntes' | 'api',
   success: boolean,
   responseTime: number

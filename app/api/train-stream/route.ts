@@ -110,7 +110,7 @@ export async function OPTIONS(request: NextRequest) {
  * Get statistics about active connections
  * Called from monitoring/debug endpoints
  */
-export function getStreamStats() {
+function getStreamStats() {
   return {
     activeConnections: activeConnections.size,
     monitoredTrains: new Set(

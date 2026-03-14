@@ -7,6 +7,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTrainData, searchTrains } from '@/services/trainDataService';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const trainNumber = request.nextUrl.searchParams.get('trainNumber');

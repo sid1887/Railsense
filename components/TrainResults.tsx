@@ -166,7 +166,24 @@ export default function TrainResults({
                   </div>
                 </div>
               )}
-            </div>
+              {/* Data Quality Badge */}
+              {train.dataQuality !== undefined && (
+                <div className="flex items-center gap-2 p-2 bg-dark-bg/50 rounded">
+                  <div className="w-4 h-4 rounded-full" style={{
+                    background: train.dataQuality >= 80
+                      ? 'linear-gradient(135deg, #1dd1b0, #16a78f)'
+                      : train.dataQuality >= 60
+                        ? 'linear-gradient(135deg, #58c7fa, #3ba3d0)'
+                        : 'linear-gradient(135deg, #fca311, #e8933c)'
+                  }} />
+                  <div>
+                    <p className="text-xs text-text-secondary">Quality</p>
+                    <p className="font-semibold text-sm text-text-primary">
+                      {train.dataQuality}%
+                    </p>
+                  </div>
+                </div>
+              )}            </div>
 
             {/* View Details Button */}
             <div className="md:col-span-12 flex justify-end">

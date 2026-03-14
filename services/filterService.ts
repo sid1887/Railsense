@@ -31,6 +31,7 @@ export interface FilteredTrain {
   region: string;
   distance?: number;
   matchScore?: number;
+  dataQuality?: number; // 0-100 quality score
 }
 
 /**

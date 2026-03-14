@@ -6,7 +6,7 @@
  * This is the primary data source for official delays and cancellations
  */
 
-import { ProviderResult, TrainProvider } from './providerAdapter';
+import { ProviderResult, TrainProvider } from '../providerAdapter';
 
 // Mock NTES response - in production would call ntesScraperWorker
 export interface NTESStatus {
@@ -48,9 +48,6 @@ class NTESProvider implements TrainProvider {
       if (cached && Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
         return {
           trainNumber,
-          lat: null,
-          lng: null,
-          speed: null,
           delay: cached.data.delay,
           status: cached.data.status,
           timestamp: cached.timestamp,
@@ -70,9 +67,7 @@ class NTESProvider implements TrainProvider {
 
       const result: ProviderResult = {
         trainNumber,
-        lat: null, // NTES doesn't provide coordinates
-        lng: null,
-        speed: null,
+        // NTES doesn't provide coordinates or speed
         delay: nteData.delay,
         status: nteData.status,
         timestamp: Date.now(),

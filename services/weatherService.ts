@@ -53,43 +53,50 @@ export async function getWeatherAtLocation(
 
     console.log(`[Weather] Fetching for ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
 
-    const response = await fetch(url.toString(), {
-      timeout: 5000,
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-    if (!response.ok) {
-      console.warn(`[Weather] API returned ${response.status}`);
-      return null;
+    try {
+      const response = await fetch(url.toString(), {
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        console.warn(`[Weather] API returned ${response.status}`);
+        return null;
+      }
+
+      const data = await response.json() as any;
+
+      // Extract current weather from response (v2.5 API structure)
+      if (!data.main) {
+        console.warn('[Weather] No weather data in response');
+        return null;
+      }
+
+      const weather: WeatherData = {
+        temperature: Math.round(data.main.temp * 10) / 10,
+        feels_like: Math.round(data.main.feels_like * 10) / 10,
+        condition: getWeatherCondition(data.weather?.[0]?.main || 'Unknown'),
+        humidity: data.main.humidity || 0,
+        wind_speed: Math.round((data.wind?.speed || 0) * 10) / 10,
+        wind_direction: data.wind?.deg || 0,
+        pressure: data.main.pressure || 0,
+        visibility: data.visibility || 10000,
+        precipitation: data.rain?.['1h'] || 0,
+        cloudiness: data.clouds?.all || 0,
+        uvi: 0, // v2.5 doesn't include UVI in main endpoint
+        timestamp: Date.now(),
+      };
+
+      // Cache it
+      weatherCache.set(cacheKey, { data: weather, timestamp: Date.now() });
+
+      console.log(`[Weather] ✓ Got weather: ${weather.temperature}°C, ${weather.condition}`);
+      return weather;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const data = await response.json() as any;
-
-    // Extract current weather from response (v2.5 API structure)
-    if (!data.main) {
-      console.warn('[Weather] No weather data in response');
-      return null;
-    }
-
-    const weather: WeatherData = {
-      temperature: Math.round(data.main.temp * 10) / 10,
-      feels_like: Math.round(data.main.feels_like * 10) / 10,
-      condition: getWeatherCondition(data.weather?.[0]?.main || 'Unknown'),
-      humidity: data.main.humidity || 0,
-      wind_speed: Math.round((data.wind?.speed || 0) * 10) / 10,
-      wind_direction: data.wind?.deg || 0,
-      pressure: data.main.pressure || 0,
-      visibility: data.visibility || 10000,
-      precipitation: data.rain?.['1h'] || 0,
-      cloudiness: data.clouds?.all || 0,
-      uvi: 0, // v2.5 doesn't include UVI in main endpoint
-      timestamp: Date.now(),
-    };
-
-    // Cache it
-    weatherCache.set(cacheKey, { data: weather, timestamp: Date.now() });
-
-    console.log(`[Weather] ✓ Got weather: ${weather.temperature}°C, ${weather.condition}`);
-    return weather;
   } catch (error) {
     console.error(`[Weather] Error fetching:`, error);
     return null;

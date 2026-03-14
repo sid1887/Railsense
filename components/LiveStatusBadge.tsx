@@ -49,6 +49,20 @@ export default function LiveStatusBadge({ trainNumber, onDataUpdate }: LiveStatu
   }
 
   const isDelayed = data.delay > 0;
+  const qualityLabel = data.isSynthetic
+    ? 'Synthetic'
+    : data.dataQuality >= 80
+      ? 'High'
+      : data.dataQuality >= 60
+        ? 'Medium'
+        : 'Low';
+  const qualityClass = data.isSynthetic
+    ? 'bg-alert-orange/20 text-alert-orange'
+    : data.dataQuality >= 80
+      ? 'bg-green-500/20 text-green-400'
+      : data.dataQuality >= 60
+        ? 'bg-yellow-500/20 text-yellow-300'
+        : 'bg-red-500/20 text-red-400';
 
   return (
     <motion.div
@@ -111,6 +125,15 @@ export default function LiveStatusBadge({ trainNumber, onDataUpdate }: LiveStatu
       <div className="text-xs text-text-secondary flex items-center gap-1">
         <span className="text-text-primary font-semibold">{Math.round(data.speed)}</span>
         km/h
+      </div>
+
+      {/* Data Quality */}
+      <div
+        className={`text-xs font-semibold px-2 py-1 rounded-full ${qualityClass}`}
+        title={`Source: ${data.source} · Quality: ${data.dataQuality}/100${data.currentLocation?.trackSegmentName ? ` · Snapped to ${data.currentLocation.trackSegmentName}` : ''}`}
+      >
+        <span>{qualityLabel}</span>
+        <span className="ml-1 text-opacity-70">({data.dataQuality}%)</span>
       </div>
 
       {/* Error State */}

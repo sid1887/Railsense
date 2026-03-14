@@ -9,6 +9,9 @@ interface TrainStatusStripProps {
   delay: number;
   speed: number;
   lastUpdated?: number;
+  source?: string;
+  dataQuality?: number;
+  isSynthetic?: boolean;
 }
 
 /**
@@ -21,6 +24,9 @@ export default function TrainStatusStrip({
   delay,
   speed,
   lastUpdated,
+  source,
+  dataQuality,
+  isSynthetic,
 }: TrainStatusStripProps) {
   const statusInfo = useMemo(() => {
     const lowerStatus = (status || 'Running').toLowerCase();
@@ -67,6 +73,16 @@ export default function TrainStatusStrip({
     const hours = Math.floor(minutes / 60);
     return `${hours}h ago`;
   }, [lastUpdated]);
+
+  const qualityLabel = isSynthetic
+    ? 'Synthetic'
+    : dataQuality !== undefined
+      ? dataQuality >= 80
+        ? 'High'
+        : dataQuality >= 60
+          ? 'Medium'
+          : 'Low'
+      : null;
 
   return (
     <motion.div
@@ -130,6 +146,27 @@ export default function TrainStatusStrip({
           </div>
         </motion.div>
       </div>
+
+      {qualityLabel && (
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className="font-semibold text-text-primary">Data Quality:</span>
+            <span className="px-2 py-1 rounded-full bg-dark-card border border-dark-border font-semibold">
+              {qualityLabel} ({dataQuality}%)
+            </span>
+            {source && (
+              <span className="px-2 py-1 rounded-full bg-dark-card border border-dark-border text-text-secondary">
+                Source: {source}
+              </span>
+            )}
+          </div>
+          {isSynthetic && (
+            <p className="text-xs text-alert-orange flex items-center gap-2">
+              ⚠ Using synthetic schedule data (live data unavailable)
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Delay Warning */}
       {delay > 0 && (

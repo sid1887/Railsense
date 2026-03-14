@@ -5,8 +5,17 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import useSWR from 'swr';
 import { TrainInsightData } from '@/types/train';
+
+const fetcher = async (url: string) => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+  return response.json();
+};
 
 interface UseTrainDataOptions {
   pollInterval?: number; // ms between updates, 0 = no polling
@@ -16,89 +25,20 @@ interface UseTrainDataOptions {
 export function useTrainData(trainNumber: string, options: UseTrainDataOptions = {}) {
   const { pollInterval = 5000, onError } = options;
 
-  const [data, setData] = useState<TrainInsightData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  // Use refs to avoid dependency array issues
-  const onErrorRef = useRef(onError);
-  const trainNumberRef = useRef(trainNumber);
-
-  useEffect(() => {
-    onErrorRef.current = onError;
-  }, [onError]);
-
-  useEffect(() => {
-    trainNumberRef.current = trainNumber;
-  }, [trainNumber]);
-
-  // Fetch function - doesn't depend on callback dependencies
-  const fetchData = useCallback(async () => {
-    const currentTrainNumber = trainNumberRef.current;
-    if (!currentTrainNumber) return;
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(`/api/train-details?trainNumber=${currentTrainNumber}`);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const insightData: TrainInsightData = await response.json();
-      setData(insightData);
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      setError(error);
-      onErrorRef.current?.(error);
-    } finally {
-      setLoading(false);
+  const url = trainNumber ? `/api/train-details?trainNumber=${trainNumber}` : null;
+  const { data, error, isLoading, mutate } = useSWR<TrainInsightData>(
+    url,
+    fetcher,
+    {
+      refreshInterval: url ? pollInterval : 0,
+      dedupingInterval: 3000,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      onError: (err) => onError?.(err),
     }
-  }, []);
+  );
 
-  // Initial fetch - only when trainNumber actually changes
-  useEffect(() => {
-    fetchData();
-  }, [trainNumber]);
-
-  // Polling - simple interval without dependency on fetchData
-  useEffect(() => {
-    if (pollInterval <= 0) return;
-
-    let isMounted = true;
-
-    const interval = setInterval(async () => {
-      if (!isMounted) return;
-
-      const currentTrainNumber = trainNumberRef.current;
-      if (!currentTrainNumber) return;
-
-      try {
-        const response = await fetch(`/api/train-details?trainNumber=${currentTrainNumber}`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        const insightData: TrainInsightData = await response.json();
-        if (isMounted) setData(insightData);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err));
-        if (isMounted) setError(error);
-        onErrorRef.current?.(error);
-      }
-    }, pollInterval);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [pollInterval]);
-
-  const refetch = useCallback(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { data, loading, error, refetch };
+  return { data: data ?? null, loading: isLoading, error: error ?? null, refetch: () => mutate() };
 }
 
 /**

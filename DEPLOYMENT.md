@@ -1,8 +1,25 @@
 # RailSense v2.0 Deployment Guide
 
+## 📌 Quick Start
+
+**For normal NPM-based development and deployment:**
+→ See [DEPLOYMENT_NPM.md](./DEPLOYMENT_NPM.md)
+
+**Quick commands:**
+```bash
+npm install
+npm run dev                    # Development
+npm run build && npm start     # Production
+```
+
+---
+
 ## Complete System Architecture (March 2026)
 
 This deployment guide covers the full-stack RailSense system including weather integration and real-time data enrichment.
+
+### Note on Docker
+Docker deployment is currently dormant/optional. For production, use npm-based deployment as documented in [DEPLOYMENT_NPM.md](./DEPLOYMENT_NPM.md).
 
 ## Prerequisites
 

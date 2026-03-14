@@ -204,10 +204,16 @@ npm run build
 npm start
 ```
 
+**For detailed deployment guide** (recommended):
+See [DEPLOYMENT_NPM.md](./DEPLOYMENT_NPM.md)
+
 **Deploy to Vercel:**
 ```bash
 vercel
 ```
+
+**Docker** (optional, currently dormant):
+Docker configuration files are available but npm-based deployment is recommended for now.
 
 ## 🤝 Contributing
 

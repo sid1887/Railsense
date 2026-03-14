@@ -4,6 +4,8 @@
  * Essential for diagnosing data quality issues during demo
  */
 
+'use server';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { ntesProvider } from '@/services/providers/ntesProvider';
 import { railyatriProvider } from '@/services/providers/railyatriProvider';
