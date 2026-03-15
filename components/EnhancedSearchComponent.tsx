@@ -1,23 +1,21 @@
 /**
  * Enhanced Train Search Component
  * Features: Autocomplete, recent searches, suggestions, loading state
+ * PHASE 1 FIX: Uses Master Catalog API for train data (source of truth)
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import mockTrainData from '@/public/mockTrainData.json';
 
-const TRAINS = [
-  { number: '12728', name: 'Godavari Express' },
-  { number: '12955', name: 'Somnath Express' },
-  { number: '17015', name: 'Visakha Express' },
-  { number: '12702', name: 'Kazipet-Warangal Express' },
-  { number: '11039', name: 'Coromandel Express' },
-];
-
 interface SearchSuggestion {
   number: string;
   name: string;
   type: 'recent' | 'suggested';
+}
+
+interface CatalogTrain {
+  trainNumber: string;
+  trainName: string;
 }
 
 export const EnhancedSearchComponent: React.FC = () => {
@@ -27,7 +25,33 @@ export const EnhancedSearchComponent: React.FC = () => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [recentSearches, setRecentSearches] = useState<SearchSuggestion[]>([]);
+  const [catalogTrains, setCatalogTrains] = useState<CatalogTrain[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+
+  // PHASE 1 FIX: Load train catalog from API on mount
+  useEffect(() => {
+    const loadCatalog = async () => {
+      try {
+        const response = await fetch('/api/master-train-catalog?limit=200');
+        const data = await response.json();
+        if (data.success && data.trains) {
+          setCatalogTrains(
+            data.trains.map((t: any) => ({
+              trainNumber: t.trainNumber,
+              trainName: t.trainName,
+            }))
+          );
+          setCatalogLoaded(true);
+          console.log(`[EnhancedSearch] Loaded ${data.trains.length} trains from catalog`);
+        }
+      } catch (error) {
+        console.error('[EnhancedSearch] Failed to load catalog:', error);
+        setCatalogLoaded(true); // Still mark as loaded to use fallback
+      }
+    };
+    loadCatalog();
+  }, []);
 
   // Load recent searches from localStorage
   useEffect(() => {
@@ -48,22 +72,25 @@ export const EnhancedSearchComponent: React.FC = () => {
     setIsLoading(true);
     const timer = setTimeout(() => {
       const query = input.toLowerCase();
-      const filtered = TRAINS.filter(
-        (train) =>
-          train.number.includes(query) ||
-          train.name.toLowerCase().includes(query)
-      ).map((train) => ({
-        number: train.number,
-        name: train.name,
-        type: 'suggested' as const,
-      }));
+      const filtered = catalogTrains
+        .filter(
+          (train) =>
+            train.trainNumber.includes(query) ||
+            train.trainName.toLowerCase().includes(query)
+        )
+        .slice(0, 8)
+        .map((train) => ({
+          number: train.trainNumber,
+          name: train.trainName,
+          type: 'suggested' as const,
+        }));
 
       setSuggestions(filtered);
       setIsLoading(false);
     }, 300); // Debounce
 
     return () => clearTimeout(timer);
-  }, [input, recentSearches]);
+  }, [input, recentSearches, catalogTrains]);
 
   const handleSelectTrain = (trainNumber: string, trainName: string) => {
     // Add to recent searches

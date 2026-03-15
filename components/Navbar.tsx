@@ -1,6 +1,6 @@
 /**
  * Global Navbar Component
- * Sticky navigation with breadcrumbs and page indicator
+ * Sticky navigation with breadcrumbs, features dropdown, and page indicator
  */
 'use client';
 
@@ -18,6 +18,7 @@ export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const [breadcrumbs, setBreadcrumbs] = useState<BreadcrumbItem[]>([]);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showFeaturesDropdown, setShowFeaturesDropdown] = useState(false);
 
   // Generate breadcrumbs based on current path
   useEffect(() => {
@@ -55,6 +56,17 @@ export const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  const intelligenceFeatures = [
+    { label: '📊 Intelligence Hub', href: '/intelligence-hub', desc: 'Central tracking & network overview' },
+    { label: '📈 Data Quality', href: '/data-quality', desc: 'Data sources & transparency' },
+    { label: '🧠 Intelligence Dashboard', href: '/intelligence', desc: 'Unified view of all AI features' },
+    { label: '🌐 Network Intelligence', href: '/test-network-intelligence', desc: 'Railway network analysis' },
+    { label: '⏱️ Halt Analysis', href: '/test-halt-analysis', desc: 'Advanced halt detection' },
+    { label: '💡 Explainability', href: '/test-explainability', desc: 'AI transparency & reasoning' },
+    { label: '👥 Passenger Safety', href: '/test-passenger-safety', desc: 'Safety metrics & analysis' },
+    { label: '📉 Cascade Detection', href: '/test-cascade-analysis', desc: 'Delay propagation analysis' },
+  ];
+
   return (
     <motion.nav
       initial={{ y: -100, opacity: 0 }}
@@ -69,7 +81,7 @@ export const Navbar: React.FC = () => {
       {/* Gradient line */}
       <div className="h-px bg-gradient-to-r from-transparent via-accent-blue to-transparent opacity-20" />
 
-      <div className="max-w-6xl mx-auto px-4 py-3">
+      <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link
@@ -79,9 +91,9 @@ export const Navbar: React.FC = () => {
             RailSense
           </Link>
 
-          {/* Breadcrumbs */}
-          <div className="hidden md:flex items-center gap-2 text-sm">
-            {breadcrumbs.map((crumb, i) => (
+          {/* Center Navigation - Breadcrumbs */}
+          <div className="hidden lg:flex items-center gap-2 text-sm flex-1 ml-8">
+            {breadcrumbs.slice(0, 3).map((crumb, i) => (
               <React.Fragment key={crumb.href}>
                 {i > 0 && <span className="text-text-secondary">/</span>}
                 <Link
@@ -99,16 +111,62 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            {/* Features Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowFeaturesDropdown(!showFeaturesDropdown)}
+                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20 transition-colors text-sm font-semibold"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span>Intelligence</span>
+                <svg
+                  className={`w-4 h-4 transition-transform ${showFeaturesDropdown ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </button>
+
+              {/* Dropdown Menu */}
+              {showFeaturesDropdown && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-full right-0 mt-2 w-64 bg-dark-card/95 backdrop-blur-lg border border-accent-blue/30 rounded-lg shadow-xl py-2 z-50"
+                >
+                  {intelligenceFeatures.map((feature) => (
+                    <Link
+                      key={feature.href}
+                      href={feature.href}
+                      onClick={() => setShowFeaturesDropdown(false)}
+                      className="flex flex-col gap-1 px-4 py-3 hover:bg-accent-blue/10 transition-colors border-b border-accent-blue/10 last:border-b-0"
+                    >
+                      <span className="text-sm font-semibold text-accent-blue">{feature.label}</span>
+                      <span className="text-xs text-text-secondary">{feature.desc}</span>
+                    </Link>
+                  ))}
+                </motion.div>
+              )}
+            </div>
+
+            {/* Search Button */}
             <Link
               href="/search"
-              className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-accent-blue/10 text-accent-blue hover:bg-accent-blue/20 transition-colors text-sm font-semibold"
+              className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg bg-accent-cyan/10 text-accent-cyan hover:bg-accent-cyan/20 transition-colors text-sm font-semibold"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <span>Search</span>
             </Link>
+
+            {/* Theme Toggle Button */}
             <button className="p-2 rounded-lg hover:bg-dark-card transition-colors">
               <svg className="w-5 h-5 text-text-secondary hover:text-accent-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m6.364 1.636l-.707-.707M21 12h-1m1.364 6.364l-.707-.707M12 21v1m-6.364-1.636l.707.707M3 12h1M4.636 4.636l.707.707" />

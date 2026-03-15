@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Navbar } from '@/components/Navbar';
 import ToastContainer from '@/components/ToastContainer';
+import AlertToastContainer from '@/components/AlertToastContainer';
 
 export const metadata: Metadata = {
   title: 'RailSense - Intelligent Train Halt Insight System',
@@ -32,6 +33,7 @@ export default function RootLayout({
           {children}
         </main>
         <ToastContainer />
+        <AlertToastContainer />
       </body>
     </html>
   );

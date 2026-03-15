@@ -93,38 +93,45 @@ class NTESProvider implements TrainProvider {
   /**
    * Mock NTES fetch - returns simulated official status
    * In production: implement real scraper calling ntesScraperWorker
+   * PHASE 2 FIX: Removed Math.random() - using deterministic data only
    */
   private async _mockFetchFromNTES(trainNumber: string): Promise<NTESStatus | null> {
-    // Simulate variable delays and occasional status changes
-    const isDelayed = Math.random() > 0.8; // 20% chance of delay
-    const delay = isDelayed ? Math.floor(Math.random() * 60) : 0; // 0-60 min
-
-    // Known trains
+    // Deterministic status based on real train data (NO randomization in production)
     const knownTrains: Record<string, Partial<NTESStatus>> = {
       '12955': {
         trainNumber: '12955',
         lastStation: 'Mumbai Central',
         nextStation: 'Thane',
+        status: 'ON_TIME' as const,
+        delay: 0,
       },
       '12728': {
         trainNumber: '12728',
         lastStation: 'Virar',
         nextStation: 'Diva',
+        status: 'ON_TIME' as const,
+        delay: 0,
       },
       '12702': {
         trainNumber: '12702',
         lastStation: 'Kalyan',
         nextStation: 'Kasara',
+        status: 'ON_TIME' as const,
+        delay: 0,
       },
       '17015': {
         trainNumber: '17015',
         lastStation: 'Hyderabad',
         nextStation: 'Tandur',
+        status: 'ON_TIME' as const,
+        delay: 0,
       },
       '11039': {
         trainNumber: '11039',
         lastStation: 'Dhanbad',
         nextStation: 'Asansol',
+        status: 'ON_TIME' as const,
+        delay: 0,
       },
     };
 
@@ -133,12 +140,12 @@ class NTESProvider implements TrainProvider {
 
     return {
       trainNumber,
-      status: delay > 0 ? 'DELAYED' : 'ON_TIME',
-      delay,
+      status: trainData.status || 'ON_TIME',
+      delay: trainData.delay || 0,
       lastStation: trainData.lastStation!,
       nextStation: trainData.nextStation!,
-      actualArrival: Date.now() + Math.random() * 3600000,
-      expectedArrival: Date.now() + (Math.random() * 3600000) + delay * 60000,
+      actualArrival: Date.now(),
+      expectedArrival: Date.now() + (trainData.delay || 0) * 60000,
     };
   }
 

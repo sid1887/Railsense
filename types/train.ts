@@ -119,3 +119,92 @@ export interface RouteSection {
   frequentHaltReasons: string[];
   congestionHistory: 'LOW' | 'MEDIUM' | 'HIGH';
 }
+
+/**
+ * CANONICAL UNIFIED RESPONSE for all train detail endpoints
+ * This is the single source of truth - all frontend queries use this
+ */
+export interface CanonicalTrainInsight {
+  // MASTER CATALOG METADATA - from realTrainsDatabase
+  trainNumber: string;
+  trainName: string;
+  sourceStation: string;
+  destinationStation: string;
+  zone: string;
+  division: string;
+  distance: number;
+  maxSpeed: number;
+  trainType: string;
+  stationSequence: Station[];
+
+  // LIVE OPERATIONAL DATA - from aggregated providers
+  currentLocation: TrainLocation;
+  currentSpeed: number; // km/h
+  isHalted: boolean;
+  haltReason?: string;
+  haltConfidence?: number; // 0-100
+  delay: number; // minutes
+  expectedDelay: number; // predicted
+
+  // Data quality metrics
+  dataQuality: {
+    overallScore: number; // 0-100
+    source: string; // which provider gave us this
+    locationDataAge: number; // seconds
+    statusDataAge: number; // seconds
+    isLiveData: boolean;
+    isSynthetic: boolean;
+    warnings: string[];
+  };
+
+  // Derived insights
+  nearbyTrains: Array<{
+    trainNumber: string;
+    trainName: string;
+    distanceKm: number;
+    direction: string;
+  }>;
+  sectionCongestion: {
+    currentSection: string;
+    congestionLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+    trainsInSection: number;
+  };
+  prediction: {
+    estimatedDelay: { min: number; max: number };
+    estimatedWaitTime: { min: number; max: number };
+    confidenceScore: number;
+  };
+  uncertainty: {
+    level: UncertaintyLevel;
+    score: number;
+    factors: string[];
+  };
+
+  // Passenger-facing message
+  passengerMessage: string;
+
+  // Metadata
+  timestamp: number;
+  cacheAge?: number;
+}
+
+export interface FilteredTrain {
+  trainNumber: string;
+  trainName: string;
+  speed: number;
+  delay: number;
+  status: 'moving' | 'delayed' | 'halted';
+  region: string;
+  distance: number;
+  source?: string;
+  sourceCode?: string;
+  destination?: string;
+  destinationCode?: string;
+  zone?: string;
+  division?: string;
+  maxSpeed?: number;
+  avgSpeed?: number;
+  type?: string;
+  lat?: number;
+  lng?: number;
+}

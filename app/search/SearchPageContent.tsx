@@ -13,73 +13,6 @@ import FilterControls from '@/components/FilterControls';
 import TrainResults from '@/components/TrainResults';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-// Mock train data - in production, this would come from API
-const MOCK_TRAINS: FilteredTrain[] = [
-  {
-    trainNumber: '12702',
-    trainName: 'Rajdhani Express',
-    speed: 110,
-    delay: 15,
-    status: 'delayed',
-    region: 'North',
-    distance: 2500,
-  },
-  {
-    trainNumber: '17015',
-    trainName: 'Maharaja Express',
-    speed: 95,
-    delay: 5,
-    status: 'moving',
-    region: 'South',
-    distance: 1800,
-  },
-  {
-    trainNumber: '12345',
-    trainName: 'Express A',
-    speed: 85,
-    delay: 0,
-    status: 'moving',
-    region: 'East',
-    distance: 1200,
-  },
-  {
-    trainNumber: '12955',
-    trainName: 'Somnath Express',
-    speed: 60,
-    delay: 45,
-    status: 'halted',
-    region: 'West',
-    distance: 800,
-  },
-  {
-    trainNumber: '14567',
-    trainName: 'Premium Express',
-    speed: 120,
-    delay: 0,
-    status: 'moving',
-    region: 'North',
-    distance: 3000,
-  },
-  {
-    trainNumber: '15678',
-    trainName: 'Slow Train',
-    speed: 40,
-    delay: 60,
-    status: 'halted',
-    region: 'South',
-    distance: 500,
-  },
-  {
-    trainNumber: '16789',
-    trainName: 'Freight Express',
-    speed: 75,
-    delay: 25,
-    status: 'delayed',
-    region: 'East',
-    distance: 2200,
-  },
-];
-
 export function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -87,6 +20,34 @@ export function SearchPageContent() {
   const [filters, setFilters] = useState<TrainFilters>({});
   const [sort, setSort] = useState<SortOptions>({ field: 'name', direction: 'asc' });
   const [loading, setLoading] = useState(false);
+  const [allTrains, setAllTrains] = useState<FilteredTrain[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+
+  // PHASE 1 FIX: Load trains from Master Catalog API (source of truth)
+  useEffect(() => {
+    const loadTrainCatalog = async () => {
+      try {
+        setCatalogLoading(true);
+        const response = await fetch('/api/master-train-catalog?limit=100');
+        const data = await response.json();
+
+        if (data.success && data.trains) {
+          setAllTrains(data.trains);
+          console.log(`[Search] Loaded ${data.trains.length} trains from master catalog`);
+        } else {
+          console.error('[Search] Failed to load catalog:', data.error);
+          setAllTrains([]);
+        }
+      } catch (error) {
+        console.error('[Search] Error loading catalog:', error);
+        setAllTrains([]);
+      } finally {
+        setCatalogLoading(false);
+      }
+    };
+
+    loadTrainCatalog();
+  }, []);
 
   // Load filters from URL params
   useEffect(() => {
@@ -120,11 +81,11 @@ export function SearchPageContent() {
       setLoading(false);
     }, 300);
 
-    const filtered = filterTrains(MOCK_TRAINS, filters);
+    const filtered = filterTrains(allTrains, filters);
     const sorted = sortTrains(filtered, sort);
 
     return sorted;
-  }, [filters, sort]);
+  }, [filters, sort, allTrains]);
 
   const handleFilterChange = (newFilters: TrainFilters) => {
     setFilters(newFilters);

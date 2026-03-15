@@ -46,73 +46,67 @@ export default function MapContent({ analytics }: MapContentProps) {
   const trainMarkerRef = React.useRef<any>(null);
   const trailPathRef = React.useRef<any>(null);
   const [trailHistory, setTrailHistory] = useState<TrainSnapshot[]>([]);
+  const [railwayRoutesData, setRailwayRoutesData] = useState<any[]>([]);
+  const [routesLoading, setRoutesLoading] = useState(true);
 
-  // Major railway route definitions with accurate station coordinates (memoized to prevent effect dependencies from changing)
+  // PHASE 12 FIX: Fetch REAL train route data from mapview API (real coordinates)
+  useEffect(() => {
+    const fetchRoutes = async () => {
+      try {
+        setRoutesLoading(true);
+        const trainNumber = analytics.trainNumber;
+
+        // Use real-data mapview API instead of railroad-routes
+        const url = `/api/mapview?trainNumber=${trainNumber}`;
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.success && data.data?.route) {
+          const route = data.data.route;
+          // Convert mapview route to map format
+          const mapRoutes = [{
+            name: `${route.trainName} Route`,
+            active: true,
+            color: route.color || '#00E0FF',
+            coordinates: route.coordinates, // [lng, lat] pairs from mapview API
+          }];
+          setRailwayRoutesData(mapRoutes);
+          console.log(`[MapContent] Loaded REAL train route from mapview API`);
+        } else {
+          console.warn('[MapContent] Failed to load route from mapview:', data.error);
+        }
+      } catch (err) {
+        console.error('[MapContent] Error fetching mapview route:', err);
+      } finally {
+        setRoutesLoading(false);
+      }
+    };
+
+    fetchRoutes();
+  }, [analytics.trainNumber]);
+
+  // Fallback: use API routes or minimal fallback with REAL analytics coordinates
   const railwayRoutes = useMemo(
-    () => [
+    () => railwayRoutesData.length > 0 ? railwayRoutesData : [
+      // Fallback: single-point route with REAL coordinates from analytics position service
       {
-        name: 'Secunderabad-Bangalore Route',
+        name: `${analytics.trainName || 'Train'} Route (Loading...)`,
         active: true,
         color: '#00E0FF',
+        // Use REAL coordinates from realTimePositionService via analytics
         coordinates: [
-          [17.3850, 78.4867], // Secunderabad
-          [17.3645, 78.4735],
-          [17.0030, 78.2170],
-          [16.5062, 78.5781], // Hyderabad area
-          [16.2158, 78.4711],
-          [15.8267, 78.4240],
-          [15.4909, 78.5489], // Kachiguda
-          [15.2993, 78.6711],
-          [14.8289, 78.6539],
-          [14.3570, 78.5748],
-          [13.8698, 78.6501], // Renigunta area
-          [13.1939, 77.5941], // Bangalore
-        ],
-      },
-      {
-        name: 'Mumbai-Nagpur Route',
-        active: false,
-        color: '#FF6B6B',
-        coordinates: [
-          [18.9676, 72.8194], // Mumbai
-          [19.2183, 73.9629],
-          [20.1809, 75.8659],
-          [21.1458, 79.0882], // Nagpur
-        ],
-      },
-      {
-        name: 'Delhi-Bangalore Route',
-        active: false,
-        color: '#FFB347',
-        coordinates: [
-          [28.7041, 77.1025], // Delhi
-          [26.1445, 75.7117],
-          [25.1772, 75.8571],
-          [13.1939, 77.5941], // Bangalore
-        ],
-      },
-      {
-        name: 'Howrah-Guwahati Route',
-        active: false,
-        color: '#FFD93D',
-        coordinates: [
-          [22.5958, 88.2636], // Howrah
-          [24.7555, 87.2960],
-          [26.1912, 91.7362], // Guwahati
+          [analytics.currentLocation?.longitude || 77.2, analytics.currentLocation?.latitude || 28.6],
         ],
       },
     ],
-    []
+    [railwayRoutesData, analytics.currentLocation]
   );
 
-  // Mock nearby trains for demonstration (memoized to prevent effect dependencies from changing)
+  // PHASE 3 FIX: Use analytics.nearbyTrains if available, not hardcoded mock
   const nearbyTrainsData = useMemo(
-    () => [
-      { id: 12955, name: 'Somnath Express', lat: 17.3850, lng: 78.4867, status: 'halted', speed: 0 },
-      { id: 12345, name: 'Express A', lat: 16.8062, lng: 78.3781, status: 'running', speed: 65 },
-      { id: 12789, name: 'Express B', lat: 15.4909, lng: 78.5489, status: 'halted', speed: 0 },
-    ],
-    []
+    () => analytics.nearbyTrains?.trains || [],
+    [analytics.nearbyTrains?.trains]
   );
 
   // Initialize map with enhanced features
@@ -356,76 +350,17 @@ export default function MapContent({ analytics }: MapContentProps) {
         timestamp: Date.now(),
       }]);
 
-      // 7. Add nearby trains with color coding
-      nearbyTrainsData.forEach((train, idx) => {
-        if (String(train.id) === analytics.trainNumber) return; // Skip main train
+      // 7. Nearby trains visualization
+      // NOTE: NearbyTrain data from analytics doesn't include lat/lng coordinates,
+      // so we can't display them on the map yet. This would require fetching
+      // position data for each nearby train from the railway network service.
+      // TODO: Implement in Phase 6 when position data is available for all trains
+      if (false && nearbyTrainsData.length > 0) {
+        console.log(`[MapContent] ${nearbyTrainsData.length} nearby trains available but positions not yet fetched`);
+      }
 
-        const statusMarker = L.divIcon({
-          html: `
-            <div style="
-              width: 28px;
-              height: 28px;
-              background: ${train.status === 'running' ? '#4caf50' : train.status === 'delayed' ? '#ff9800' : '#d32f2f'};
-              border: 2px solid white;
-              border-radius: 50%;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              font-size: 14px;
-              box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
-              color: white;
-              font-weight: 600;
-            ">
-              ${idx + 1}
-            </div>
-          `,
-          iconSize: [28, 28],
-          popupAnchor: [0, -14],
-          className: 'nearby-train-marker',
-        });
-
-        const nearbyMarker = L.marker([train.lat, train.lng], {
-          icon: statusMarker,
-          zIndexOffset: 500,
-        }).addTo(newMap);
-
-        nearbyMarker.bindPopup(`
-          <div style="min-width: 180px; font-family: sans-serif;">
-            <h4 style="margin: 0 0 8px 0; color: #333;">${train.name}</h4>
-            <p style="margin: 4px 0; font-size: 0.9em;">
-              <strong>Train #:</strong> ${train.id}
-            </p>
-            <p style="margin: 4px 0; font-size: 0.9em;">
-              <strong>Status:</strong> ${train.status.toUpperCase()}
-            </p>
-            <p style="margin: 4px 0; font-size: 0.9em;">
-              <strong>Speed:</strong> ${train.speed} km/h
-            </p>
-          </div>
-        `);
-      });
-
-      // 8. Add congestion heatmap using snapshot data
-      // Create heatmap points from nearby trains as demo
-      const heatmapPoints = nearbyTrainsData.map((train) => [
-        train.lat,
-        train.lng,
-        train.speed > 0 ? 0.3 : 0.8, // intensity: slower = more congested
-      ]);
-
-      // Custom heatmap layer using circles
-      const heatmapGroup = L.featureGroup();
-      heatmapPoints.forEach((point) => {
-        L.circleMarker([point[0], point[1]], {
-          radius: 15,
-          fillColor: point[2] > 0.5 ? '#d32f2f' : '#ff9800',
-          color: 'transparent',
-          weight: 0,
-          opacity: 0,
-          fillOpacity: point[2] * 0.15,
-        }).addTo(heatmapGroup);
-      });
-      heatmapGroup.addTo(newMap);
+      // 8. Congestion heatmap
+      // TODO: When nearby train positions become available, add heatmap visualization here
 
       // 9. Auto-zoom/fly to train with smooth animation
       newMap.flyTo(snappedPosition, 8, {

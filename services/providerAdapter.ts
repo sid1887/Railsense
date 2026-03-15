@@ -17,6 +17,7 @@ export interface ProviderResult {
   delay?: number;
   status?: string;
   timestamp?: number;
+  accuracy?: number; // meters (for GPS-based sources)
   source?: TrainDataSource;
   sources?: TrainDataSource[];
   raw?: any;

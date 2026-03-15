@@ -191,6 +191,7 @@ class RailYatriProvider implements TrainProvider {
       lat: data.lat,
       lng: data.lng,
       speed: data.speed,
+      accuracy: data.accuracy,
       // RailYatri doesn't provide delay or status info
       timestamp,
       source: 'railyatri',
@@ -240,32 +241,26 @@ class RailYatriProvider implements TrainProvider {
     const coords = trainCoords[trainNumber];
     if (!coords) return null;
 
-    // Simulate train position along route (0-100%)
-    const progress = Math.random() * 0.8 + 0.1; // 10-90% along route
+    // PHASE 2 FIX: Use deterministic position at 50% of route (NO randomization)
+    const progress = 0.5; // Fixed middle position instead of randomized
     const lat = coords.baseLatStart + (coords.baseLatEnd - coords.baseLatStart) * progress;
     const lng = coords.baseLngStart + (coords.baseLngEnd - coords.baseLngStart) * progress;
 
-    // Simulate speed: 0-100 km/h with occasional stops
-    const isStopped = Math.random() > 0.85; // 15% chance of being stopped
-    const speed = isStopped ? 0 : Math.random() * 100;
+    // Deterministic speed based on train type
+    const speed = 55; // Fixed average speed instead of random 0-100
 
-    // Simulate crowd level
-    const crowdRandom = Math.random();
-    let crowdLevel: 'EMPTY' | 'NORMAL' | 'CROWDED' | 'PACKED' = 'NORMAL';
-    if (crowdRandom > 0.7) crowdLevel = 'PACKED';
-    else if (crowdRandom > 0.4) crowdLevel = 'CROWDED';
-    else if (crowdRandom > 0.1) crowdLevel = 'NORMAL';
-    else crowdLevel = 'EMPTY';
+    // Deterministic crowd level
+    const crowdLevel: 'EMPTY' | 'NORMAL' | 'CROWDED' | 'PACKED' = 'NORMAL';
 
     return {
       trainNumber,
-      lat: lat + (Math.random() - 0.5) * 0.01, // ±0.005° jitter
-      lng: lng + (Math.random() - 0.5) * 0.01,
-      speed: Math.round(speed * 10) / 10, // round to 0.1 km/h
-      accuracy: 50 + Math.random() * 100, // 50-150 meters
-      boardedPassengers: Math.floor(Math.random() * 400),
+      lat: lat, // NO jitter - use exact computed position
+      lng: lng,
+      speed: Math.round(speed * 10) / 10,
+      accuracy: 100, // Fixed 100 meters instead of random 50-150
+      boardedPassengers: 200, // Fixed 200 passengers instead of random
       crowdLevel,
-      lastReportAge: Math.floor(Math.random() * 120), // 0-120 seconds old
+      lastReportAge: 30, // Fixed 30 seconds instead of random 0-120
     };
   }
 

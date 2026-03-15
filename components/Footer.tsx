@@ -39,8 +39,40 @@ export const Footer: React.FC = () => {
                 </a>
               </li>
               <li>
-                <a href="#" className="hover:text-accent-blue transition-colors">
-                  Analytics
+                <a href="/intelligence" className="hover:text-accent-blue transition-colors">
+                  Intelligence Dashboard
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* New: Intelligence Features */}
+          <div>
+            <h4 className="font-semibold text-white mb-4">AI Features</h4>
+            <ul className="space-y-2 text-sm text-text-secondary">
+              <li>
+                <a href="/test-network-intelligence" className="hover:text-accent-blue transition-colors">
+                  Network Intelligence
+                </a>
+              </li>
+              <li>
+                <a href="/test-halt-analysis" className="hover:text-accent-blue transition-colors">
+                  Halt Analysis
+                </a>
+              </li>
+              <li>
+                <a href="/test-explainability" className="hover:text-accent-blue transition-colors">
+                  Explainability
+                </a>
+              </li>
+              <li>
+                <a href="/test-passenger-safety" className="hover:text-accent-blue transition-colors">
+                  Passenger Safety
+                </a>
+              </li>
+              <li>
+                <a href="/test-cascade-analysis" className="hover:text-accent-blue transition-colors">
+                  Cascade Detection
                 </a>
               </li>
             </ul>

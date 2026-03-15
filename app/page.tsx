@@ -153,6 +153,119 @@ export default function Home() {
           ))}
         </motion.div>
 
+        {/* WEEK 3 INTELLIGENCE FEATURES SECTION */}
+        <motion.div
+          className="w-full max-w-5xl mb-16"
+          variants={containerVariants}
+          initial="hidden"
+          animate={isVisible ? 'visible' : 'hidden'}
+        >
+          <div className="mb-8 text-center">
+            <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-accent-blue via-accent-cyan to-accent-blue mb-3">
+              🧠 AI-Powered Intelligence Features
+            </h2>
+            <p className="text-text-secondary max-w-2xl mx-auto">
+              Advanced machine learning and explainable AI for smarter train tracking
+            </p>
+          </div>
+
+          {/* Intelligence Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            {[
+              {
+                icon: '🌐',
+                title: 'Network Intelligence',
+                desc: 'Real-time railway network analysis with hotspot detection and flow prediction',
+                href: '/test-network-intelligence',
+                color: 'from-blue-600 to-cyan-600',
+              },
+              {
+                icon: '⏱️',
+                title: 'Halt Analysis',
+                desc: 'Advanced detection of halt reasons with confidence scoring and platform tracking',
+                href: '/test-halt-analysis',
+                color: 'from-orange-600 to-red-600',
+              },
+              {
+                icon: '💡',
+                title: 'Explainability Engine',
+                desc: 'Transparent AI reasoning with evidence chains and alternative scenarios',
+                href: '/test-explainability',
+                color: 'from-purple-600 to-pink-600',
+              },
+              {
+                icon: '👥',
+                title: 'Passenger Safety',
+                desc: 'Connection window analysis and dwell anomaly detection for passenger welfare',
+                href: '/test-passenger-safety',
+                color: 'from-green-600 to-emerald-600',
+              },
+              {
+                icon: '📉',
+                title: 'Cascade Detection',
+                desc: 'Delay propagation modeling with priority conflict and network impact analysis',
+                href: '/test-cascade-analysis',
+                color: 'from-yellow-600 to-orange-600',
+              },
+              {
+                icon: '💾',
+                title: 'Data Persistence',
+                desc: 'Historical pattern storage with retention policies and data export capabilities',
+                href: '/intelligence',
+                color: 'from-indigo-600 to-purple-600',
+              },
+            ].map((feature, i) => (
+              <motion.div
+                key={i}
+                custom={i}
+                variants={cardVariants}
+                whileHover="hover"
+                className="group relative"
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br ${feature.color} opacity-0 group-hover:opacity-20 rounded-xl blur-lg transition-opacity duration-300`} />
+                <a
+                  href={feature.href}
+                  className="relative backdrop-blur-xl bg-dark-card bg-opacity-60 border border-accent-blue border-opacity-20 group-hover:border-opacity-50 rounded-xl p-5 h-full transition-all duration-300 flex flex-col cursor-pointer block"
+                >
+                  <div className="text-3xl mb-3">{feature.icon}</div>
+                  <h3 className="font-semibold text-base text-white mb-2 group-hover:text-accent-cyan transition-colors">
+                    {feature.title}
+                  </h3>
+                  <p className="text-xs text-text-secondary group-hover:text-text-primary transition-colors flex-1">
+                    {feature.desc}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity text-accent-blue text-xs font-semibold">
+                    <span>Explore</span>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </div>
+                </a>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Intelligence Dashboard CTA */}
+          <motion.div
+            variants={itemVariants}
+            className="bg-gradient-to-r from-accent-blue/10 via-accent-cyan/10 to-accent-blue/10 border border-accent-blue/30 rounded-xl p-6 text-center"
+          >
+            <h3 className="text-xl font-bold text-white mb-2">Unified Intelligence Dashboard</h3>
+            <p className="text-text-secondary mb-4">
+              View all AI features in one comprehensive control center with real-time metrics and analytics
+            </p>
+            <a
+              href="/intelligence"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-accent-blue to-accent-cyan text-dark-bg font-bold rounded-lg hover:shadow-lg hover:shadow-accent-blue/50 transition-all"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              View Full Dashboard
+            </a>
+          </motion.div>
+        </motion.div>
+
         {/* Search Component */}
         <motion.div
           className="w-full max-w-2xl mb-12"

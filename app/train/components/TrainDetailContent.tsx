@@ -14,6 +14,8 @@ import RecommendationBanner from './RecommendationBanner';
 import NearbyRailwaySections from './NearbyRailwaySections';
 import RouteTimeline from './RouteTimeline';
 import StatusBar from './StatusBar';
+import ETAForecastCard from '@/components/ETAForecastCard';
+import JourneyAlertsPanel from '@/components/JourneyAlertsPanel';
 import './design-system.css';
 
 interface TrainDetailPageProps {
@@ -160,6 +162,15 @@ export default function TrainDetailPage({ trainNumber }: TrainDetailPageProps) {
           <TrainDetailHeader analytics={analytics} />
         </motion.div>
 
+        {/* Journey Alerts Panel */}
+        <motion.div variants={itemVariants}>
+          <JourneyAlertsPanel
+            trainNumber={selectedTrain}
+            boardingStation={analytics.trainName?.split('-')[0] || 'Unknown'}
+            alightingStation={analytics.trainName?.split('-')[1] || 'Unknown'}
+          />
+        </motion.div>
+
         {/* Recommendation Banner */}
         {analytics.movementState === 'halted' && (
           <motion.div variants={itemVariants}>
@@ -210,6 +221,11 @@ export default function TrainDetailPage({ trainNumber }: TrainDetailPageProps) {
             {/* Wait Time Card */}
             <motion.div variants={itemVariants}>
               <WaitTimeCard analytics={analytics} />
+            </motion.div>
+
+            {/* ETA Forecast Card */}
+            <motion.div variants={itemVariants}>
+              <ETAForecastCard trainNumber={selectedTrain} />
             </motion.div>
 
             {/* Route Timeline */}

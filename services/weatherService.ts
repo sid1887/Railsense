@@ -208,3 +208,38 @@ export function assessWeatherImpact(weather: WeatherData): {
     reason,
   };
 }
+
+/**
+ * Check if weather conditions are hazardous
+ */
+export function isHazardousWeather(weather: WeatherData): boolean {
+  return (
+    weather.precipitation > 15 ||
+    weather.wind_speed > 12 ||
+    weather.condition === 'Thunderstorm' ||
+    weather.visibility < 1000 ||
+    weather.temperature > 45 ||
+    weather.temperature < -5
+  );
+}
+
+/**
+ * Get weather for entire route (list of waypoints)
+ */
+export async function getWeatherForRoute(waypoints: Array<{ lat: number; lng: number }>) {
+  const weatherData = await Promise.all(
+    waypoints.map((point) => getWeatherAtLocation(point.lat, point.lng))
+  );
+  return weatherData.filter((w) => w !== null);
+}
+
+/**
+ * Export singleton service object for class-based imports
+ */
+export const weatherService = {
+  getWeatherAtLocation,
+  getWeatherForRoute,
+  assessWeatherImpact,
+  isHazardousWeather,
+  clearWeatherCache,
+};
