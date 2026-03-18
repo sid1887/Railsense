@@ -9,17 +9,17 @@
   --bg-base: hsl(220, 20%, 7%);           /* #0d1420 - near-black navy */
   --bg-card: hsl(220, 18%, 10%);          /* #131829 - card surfaces */
   --bg-secondary: hsl(220, 16%, 14%);     /* #1a1f2e - input/secondary */
-  --bg-accent: hsl(160, 84%, 44%);        /* #1dd1b0 - primary teal */
+  --bg-accent: hsl(262, 83%, 58%);        /* accent purple */
 
   /* Status Colors */
-  --color-moving: hsl(160, 84%, 44%);     /* #1dd1b0 - green/teal for moving */
+  --color-moving: hsl(142, 71%, 45%);     /* success */
   --color-halt: hsl(0, 72%, 55%);         /* #e63946 - red for halted */
-  --color-delayed: hsl(38, 92%, 55%);     /* #fca311 - amber for delays */
+  --color-delayed: hsl(38, 92%, 50%);     /* route amber */
 
   /* Text Colors */
   --text-foreground: hsl(210, 20%, 92%);  /* #e8ecf5 - main text */
   --text-muted: hsl(215, 12%, 50%);       /* #6b7494 - secondary text */
-  --text-primary: hsl(160, 84%, 44%);     /* teal accent text */
+  --text-primary: hsl(262, 83%, 58%);     /* accent text */
 
   /* Borders */
   --border-color: hsl(220, 14%, 18%);     /* #252d3a - border lines */
@@ -38,9 +38,9 @@
 
 /* ===== TYPOGRAPHY ===== */
 :root {
-  --font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: 'JetBrains Mono', 'Courier New', monospace;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
   --text-base: 14px;
   --line-height-tight: 1.2;

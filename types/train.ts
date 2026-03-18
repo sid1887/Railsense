@@ -26,6 +26,7 @@ export interface TrainData {
   speed: number; // km/h, 0 if halted
   scheduledStations: Station[];
   currentStationIndex: number;
+  currentStationCode: string; // Station code at current location
   delay: number; // minutes
   status?: string; // 'Running', 'On Time', 'Delayed', etc. from NTES
   lastUpdated: number; // timestamp of last update
@@ -33,6 +34,7 @@ export interface TrainData {
 
 export interface Station {
   name: string;
+  code?: string; // Station code (added for timeline identification)
   scheduledArrival: string;
   estimatedArrival?: string;
   scheduledDeparture: string;

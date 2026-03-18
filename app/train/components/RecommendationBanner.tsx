@@ -17,8 +17,8 @@ export default function RecommendationBanner({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.3 }}
       style={{
-        background: 'linear-gradient(90deg, rgba(29, 209, 176, 0.1) 0%, rgba(29, 209, 176, 0.05) 100%)',
-        borderLeft: '3px solid hsl(160, 84%, 44%)',
+        background: 'linear-gradient(90deg, rgba(139, 92, 246, 0.16) 0%, rgba(139, 92, 246, 0.06) 100%)',
+        borderLeft: '3px solid hsl(262, 83%, 58%)',
         borderRadius: '12px',
         padding: '16px',
         marginBottom: '16px',
@@ -30,7 +30,7 @@ export default function RecommendationBanner({
       <Lightbulb
         size={16}
         style={{
-          color: 'hsl(160, 84%, 44%)',
+          color: 'hsl(262, 83%, 58%)',
           marginTop: '2px',
           flexShrink: 0,
         }}
@@ -42,7 +42,7 @@ export default function RecommendationBanner({
             fontWeight: '600',
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
-            color: 'hsl(160, 84%, 44%)',
+            color: 'hsl(262, 83%, 58%)',
             marginBottom: '4px',
           }}
         >

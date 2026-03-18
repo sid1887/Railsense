@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
-import { Train } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Train, Clock3 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import './design-system.css';
 
 interface RouteStation {
@@ -18,16 +18,44 @@ interface RouteTimelineProps {
   stations?: RouteStation[];
 }
 
-const defaultStations: RouteStation[] = [
-  { name: 'Mumbai Central', code: 'MMCT', scheduledTime: '06:00', actualTime: '06:05', status: 'completed', delayMinutes: 5 },
-  { name: 'Pune Junction', code: 'PJN', scheduledTime: '10:30', actualTime: '10:45', status: 'completed', delayMinutes: 15 },
-  { name: 'Parli Vaijnath', code: 'PVN', scheduledTime: '13:15', actualTime: '13:31', status: 'completed', delayMinutes: 16 },
-  { name: 'Paranda Junction', code: 'PRD', scheduledTime: '15:00', actualTime: '15:18', status: 'current', delayMinutes: 18 },
-  { name: 'Nagpur Junction', code: 'NG', scheduledTime: '17:45', status: 'upcoming' },
-  { name: 'Wardha', code: 'WR', scheduledTime: '19:30', status: 'upcoming' },
-];
+const defaultStations: RouteStation[] = [];
 
 export default function RouteTimeline({ stations = defaultStations }: RouteTimelineProps) {
+  const [hoveredCode, setHoveredCode] = useState<string | null>(null);
+
+  // Scroll to current station when component loads or stations change
+  useEffect(() => {
+    const currentStation = stations.find(s => s.status === 'current');
+    if (currentStation) {
+      // Delay slightly to ensure DOM is ready
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`station-${currentStation.code}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          console.log(`[RouteTimeline] Scrolled to current station: ${currentStation.code}`);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [stations]);
+
+  useEffect(() => {
+    const onMapHover = (event: Event) => {
+      const customEvent = event as CustomEvent<{ code?: string | null }>;
+      const code = (customEvent.detail?.code || '').toUpperCase();
+      setHoveredCode(code || null);
+    };
+
+    window.addEventListener('map-station-hover', onMapHover as EventListener);
+    return () => window.removeEventListener('map-station-hover', onMapHover as EventListener);
+  }, []);
+
+  const normalizedStations = useMemo(() => {
+    const safeStations = Array.isArray(stations) ? stations : [];
+    console.log('[RouteTimeline] Rendering stations:', safeStations.length, safeStations);
+    return safeStations;
+  }, [stations]);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -38,16 +66,32 @@ export default function RouteTimeline({ stations = defaultStations }: RouteTimel
     },
   };
 
+  const listVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.05 },
+    },
+  };
+
   const itemVariants = {
     hidden: { opacity: 0, x: -10 },
     visible: { opacity: 1, x: 0 },
+  };
+
+  const emitHover = (code: string | null) => {
+    window.dispatchEvent(
+      new CustomEvent('timeline-station-hover', {
+        detail: { code: code ? code.toUpperCase() : null },
+      })
+    );
   };
 
   return (
     <motion.div
       className="card"
       style={{
-        padding: '20px',
+        padding: '16px',
         marginBottom: '16px',
       }}
       initial="hidden"
@@ -61,208 +105,176 @@ export default function RouteTimeline({ stations = defaultStations }: RouteTimel
           display: 'flex',
           alignItems: 'center',
           gap: '10px',
-          marginBottom: '16px',
+          marginBottom: '12px',
         }}
       >
-        <Train size={16} style={{ color: 'hsl(160, 84%, 44%)' }} />
+        <Train size={16} style={{ color: 'hsl(262, 83%, 58%)' }} />
         <h2
           className="heading-md"
           style={{
-            color: 'hsl(210, 20%, 92%)',
+            color: 'hsl(0, 0%, 98%)',
             margin: 0,
           }}
         >
-          Route Timeline
+          Railway Timeline
         </h2>
       </motion.div>
 
-      {/* Timeline */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0',
-          position: 'relative',
-        }}
-      >
-        {stations.map((station, index) => {
-          const dotColor =
-            station.status === 'completed'
-              ? 'hsl(160, 84%, 44%)'
-              : station.status === 'current'
-                ? 'hsl(0, 72%, 55%)'
-                : 'hsl(220, 14%, 18%)';
+      {normalizedStations.length === 0 ? (
+        <div
+          style={{
+            borderRadius: '12px',
+            border: '1px dashed hsl(240, 4%, 46%)',
+            background: 'rgba(255,255,255,0.02)',
+            padding: '16px',
+            color: 'hsl(240, 4%, 66%)',
+            fontSize: '13px',
+          }}
+        >
+          No route stations are available yet for this train.
+        </div>
+      ) : (
+        <motion.div
+          variants={listVariants}
+          initial="hidden"
+          animate="visible"
+          style={{ position: 'relative' }}
+        >
+          <AnimatePresence>
+            {normalizedStations.map((station, index) => {
+              const isLast = index === normalizedStations.length - 1;
+              const isCurrent = station.status === 'current';
+              const isCompleted = station.status === 'completed';
+              const isHovered = hoveredCode === station.code.toUpperCase();
 
-          const dotSize = station.status === 'current' ? '12px' : '10px';
-          const textColor =
-            station.status === 'completed'
-              ? 'hsl(210, 20%, 92%)'
-              : station.status === 'current'
-                ? 'hsl(0, 72%, 55%)'
-                : 'hsl(215, 12%, 50%)';
+              const dotStyle: React.CSSProperties = isCurrent
+                ? {
+                    width: '14px',
+                    height: '14px',
+                    borderRadius: '999px',
+                    background: 'hsl(262, 83%, 58%)',
+                    border: '2px solid hsl(0, 0%, 98%)',
+                    boxShadow: '0 0 0 6px rgba(139, 92, 246, 0.18)',
+                  }
+                : isCompleted
+                  ? {
+                      width: '10px',
+                      height: '10px',
+                      borderRadius: '999px',
+                      background: 'hsl(240, 4%, 46%)',
+                      border: '1px solid hsl(240, 4%, 46%)',
+                    }
+                  : {
+                      width: '11px',
+                      height: '11px',
+                      borderRadius: '999px',
+                      background: 'transparent',
+                      border: '2px solid hsl(240, 4%, 66%)',
+                    };
 
-          const lineColor =
-            station.status === 'completed'
-              ? 'rgba(29, 209, 176, 0.3)'
-              : 'hsl(220, 14%, 18%)';
-
-          const isLast = index === stations.length - 1;
-          const isCurrent = station.status === 'current';
-
-          return (
-            <motion.div
-              key={station.code}
-              variants={itemVariants}
-              style={{
-                display: 'flex',
-                gap: '12px',
-                paddingBottom: '16px',
-              }}
-            >
-              {/* Left Column - Time */}
-              <div style={{ minWidth: '80px', textAlign: 'right' }}>
-                <div
+              return (
+                <motion.button
+                  type="button"
+                  key={`${station.code}-${index}`}
+                  id={`station-${station.code}`}
+                  variants={itemVariants}
+                  onMouseEnter={() => {
+                    setHoveredCode(station.code.toUpperCase());
+                    emitHover(station.code);
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredCode(null);
+                    emitHover(null);
+                  }}
                   style={{
-                    fontSize: '13px',
-                    fontFamily: 'var(--font-mono)',
-                    color: 'hsl(215, 12%, 50%)',
-                    fontWeight: '500',
+                    width: '100%',
+                    display: 'grid',
+                    gridTemplateColumns: '20px 1fr auto',
+                    columnGap: '12px',
+                    textAlign: 'left',
+                    borderRadius: '10px',
+                    padding: '8px',
+                    border: isHovered ? '1px solid rgba(139,92,246,0.45)' : '1px solid transparent',
+                    background: isHovered ? 'rgba(139,92,246,0.08)' : 'transparent',
+                    transition: 'all 150ms ease',
+                    marginBottom: '4px',
+                    cursor: 'pointer',
                   }}
                 >
-                  {station.scheduledTime}
-                </div>
-                {station.actualTime && station.actualTime !== station.scheduledTime && (
-                  <div
-                    style={{
-                      fontSize: '12px',
-                      fontFamily: 'var(--font-mono)',
-                      color: 'hsl(38, 92%, 55%)',
-                      fontWeight: '600',
-                    }}
-                  >
-                    → {station.actualTime}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={dotStyle} />
+                    {!isLast && (
+                      <div
+                        style={{
+                          width: '1px',
+                          height: '44px',
+                          marginTop: '4px',
+                          background: isCompleted
+                            ? 'hsl(240, 4%, 46%)'
+                            : 'rgba(255,255,255,0.18)',
+                        }}
+                      />
+                    )}
                   </div>
-                )}
-              </div>
 
-              {/* Center Column - Dot & Line */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0',
-                }}
-              >
-                {/* Dot */}
-                <div
-                  style={{
-                    width: dotSize,
-                    height: dotSize,
-                    borderRadius: '50%',
-                    backgroundColor: dotColor,
-                    border: '2px solid ' + dotColor,
-                    position: 'relative',
-                    zIndex: 1,
-                  }}
-                >
-                  {isCurrent && (
-                    <motion.div
+                  <div style={{ paddingBottom: isLast ? 0 : '16px' }}>
+                    <div
                       style={{
-                        position: 'absolute',
-                        width: '24px',
-                        height: '24px',
-                        borderRadius: '50%',
-                        border: '2px solid hsl(0, 72%, 55%)',
-                        left: '-7px',
-                        top: '-7px',
+                        fontSize: '14px',
+                        color: isCurrent ? 'hsl(0, 0%, 98%)' : isCompleted ? 'hsl(240, 4%, 66%)' : 'hsl(0, 0%, 92%)',
+                        fontWeight: isCurrent ? 600 : 500,
+                        lineHeight: 1.3,
                       }}
-                      animate={{ scale: [1, 1.2, 1], opacity: [1, 0.6, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    />
-                  )}
-                </div>
+                    >
+                      {station.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        color: 'hsl(240, 4%, 56%)',
+                        marginTop: '2px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      {station.code}
+                    </div>
+                    {Boolean(station.delayMinutes && station.delayMinutes > 0) && (
+                      <div
+                        style={{
+                          marginTop: '4px',
+                          fontSize: '11px',
+                          color: 'hsl(0, 84%, 60%)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        +{station.delayMinutes} min delay
+                      </div>
+                    )}
+                  </div>
 
-                {/* Connecting Line */}
-                {!isLast && (
                   <div
                     style={{
-                      width: '2px',
-                      height: '44px',
-                      backgroundColor: lineColor,
-                      marginTop: '4px',
-                    }}
-                  />
-                )}
-              </div>
-
-              {/* Right Column - Station Info */}
-              <div style={{ flex: 1, paddingTop: '2px' }}>
-                <div
-                  style={{
-                    fontSize: '13px',
-                    fontWeight: isCurrent ? '600' : '500',
-                    color: textColor,
-                    lineHeight: '1.3',
-                  }}
-                >
-                  {station.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: '11px',
-                    fontFamily: 'var(--font-mono)',
-                    color: 'hsl(215, 12%, 50%)',
-                  }}
-                >
-                  {station.code}
-                </div>
-                {station.delayMinutes && station.delayMinutes > 0 && (
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      color: 'hsl(38, 92%, 55%)',
-                      fontWeight: '600',
-                      marginTop: '2px',
+                      minWidth: '84px',
+                      textAlign: 'right',
+                      fontSize: '13px',
+                      color: 'hsl(240, 4%, 66%)',
+                      fontVariantNumeric: 'tabular-nums',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'flex-end',
+                      gap: '4px',
                     }}
                   >
-                    +{station.delayMinutes}m delay
+                    <Clock3 size={13} style={{ marginTop: '2px' }} />
+                    <span>{station.actualTime || station.scheduledTime || '--:--'}</span>
                   </div>
-                )}
-              </div>
-
-              {/* Highlight for current station */}
-              {isCurrent && (
-                <motion.div
-                  style={{
-                    position: 'absolute',
-                    left: '-20px',
-                    right: '-20px',
-                    top: '-8px',
-                    height: '56px',
-                    backgroundColor: 'rgba(230, 57, 70, 0.05)',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(230, 57, 70, 0.1)',
-                    zIndex: 0,
-                  }}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3 }}
-                />
-              )}
-            </motion.div>
-          );
-        })}
-      </div>
-
-      <style>{`
-        @media (max-width: 768px) {
-          .timeline-scroll {
-            max-height: 300px;
-            overflow-y: auto;
-          }
-        }
-      `}</style>
+                </motion.button>
+              );
+            })}
+          </AnimatePresence>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

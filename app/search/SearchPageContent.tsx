@@ -31,9 +31,23 @@ export function SearchPageContent() {
         const response = await fetch('/api/master-train-catalog?limit=100');
         const data = await response.json();
 
-        if (data.success && data.trains) {
-          setAllTrains(data.trains);
-          console.log(`[Search] Loaded ${data.trains.length} trains from master catalog`);
+        // API returns structure: { success, data: { trains, total, count } }
+        if (data.success && data.data && data.data.trains) {
+          // Transform API response to FilteredTrain format
+          const transformedTrains = data.data.trains.map((train: any) => ({
+            trainNumber: train.trainNumber,
+            trainName: train.trainName,
+            speed: train.avgSpeed || train.maxSpeed || 0,
+            delay: 0, // Default - will be updated from real-time data
+            status: 'moving' as const, // Default status
+            region: train.zone || 'Unknown', // Use zone as region
+            distance: train.distance || 0,
+            matchScore: 100,
+            dataQuality: 95,
+          }));
+
+          setAllTrains(transformedTrains);
+          console.log(`[Search] Loaded ${transformedTrains.length} trains from master catalog`);
         } else {
           console.error('[Search] Failed to load catalog:', data.error);
           setAllTrains([]);

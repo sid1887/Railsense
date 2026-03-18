@@ -3,6 +3,7 @@ import './globals.css';
 import { Navbar } from '@/components/Navbar';
 import ToastContainer from '@/components/ToastContainer';
 import AlertToastContainer from '@/components/AlertToastContainer';
+import { TrainProvider } from '@/contexts/TrainContext';
 
 export const metadata: Metadata = {
   title: 'RailSense - Intelligent Train Halt Insight System',
@@ -28,12 +29,14 @@ export default function RootLayout({
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
       </head>
       <body className="bg-dark-bg text-text-primary antialiased">
-        <Navbar />
-        <main className="min-h-screen pt-16">
-          {children}
-        </main>
-        <ToastContainer />
-        <AlertToastContainer />
+        <TrainProvider>
+          <Navbar />
+          <main className="min-h-screen pt-16">
+            {children}
+          </main>
+          <ToastContainer />
+          <AlertToastContainer />
+        </TrainProvider>
       </body>
     </html>
   );

@@ -1,524 +1,480 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { TrainAnalytics } from '@/types/analytics';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import * as turf from '@turf/turf';
+import { MapPinOff } from 'lucide-react';
+import { TrainAnalytics } from '@/types/analytics';
 
-// Lazy load Leaflet
-let L: any = null;
-
-if (typeof window !== 'undefined') {
-  try {
-    L = require('leaflet');
-    require('leaflet/dist/leaflet.css');
-  } catch (err) {
-    console.warn('Leaflet not installed');
-  }
-}
-
-/**
- * Advanced Train Map Component
- * Features:
- * - Dark theme (Carto Dark Matter)
- * - OpenRailwayMap tiles for railway network
- * - Train route polyline with route snapping
- * - Animated train marker (🚆)
- * - Movement trail/history
- * - Nearby trains display
- * - Congestion heatmap
- * - Auto-zoom to train
- */
 interface MapContentProps {
   analytics: TrainAnalytics;
 }
 
-interface TrainSnapshot {
-  lat: number;
-  lng: number;
-  timestamp: number;
+interface RouteStop {
+  name: string;
+  code?: string;
+  lat?: number;
+  lng?: number;
+}
+
+interface RoutePayload {
+  name: string;
+  color: string;
+  coordinates: [number, number][]; // [lng, lat]
+  stops: RouteStop[];
+}
+
+interface MapViewResponse {
+  success?: boolean;
+  data?: {
+    route?: {
+      trainName?: string;
+      color?: string;
+      coordinates?: [number, number][];
+      stops?: RouteStop[];
+    };
+  };
+  liveUnavailable?: boolean;
+  liveDataQuality?: string;
+  liveDiagnostics?: {
+    attemptedProviders?: string[];
+    failedProviders?: string[];
+    reason?: string;
+  };
+  error?: string;
+  message?: string;
+}
+
+function hasValidCoords(coords: [number, number][]): boolean {
+  return Array.isArray(coords) && coords.length >= 2;
 }
 
 export default function MapContent({ analytics }: MapContentProps) {
-  const mapRef = React.useRef<any>(null);
-  const [map, setMap] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const trainMarkerRef = React.useRef<any>(null);
-  const trailPathRef = React.useRef<any>(null);
-  const [trailHistory, setTrailHistory] = useState<TrainSnapshot[]>([]);
-  const [railwayRoutesData, setRailwayRoutesData] = useState<any[]>([]);
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.CircleMarker | null>(null);
+  const stationMarkersRef = useRef<L.CircleMarker[]>([]);
+  const zoomControlRef = useRef<L.Control | null>(null);
+  const routeLineRef = useRef<any>(null);
+
+  const [route, setRoute] = useState<RoutePayload | null>(null);
   const [routesLoading, setRoutesLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [liveUnavailable, setLiveUnavailable] = useState<boolean | null>(null);
+  const [liveReason, setLiveReason] = useState<string>('');
+  const [failedProviders, setFailedProviders] = useState<string[]>([]);
 
-  // PHASE 12 FIX: Fetch REAL train route data from mapview API (real coordinates)
   useEffect(() => {
-    const fetchRoutes = async () => {
+    let cancelled = false;
+
+    async function fetchRoute() {
+      setRoutesLoading(true);
+      setError(null);
+      setLiveUnavailable(null);
+      setLiveReason('');
+      setFailedProviders([]);
+
       try {
-        setRoutesLoading(true);
-        const trainNumber = analytics.trainNumber;
+        const res = await fetch(`/api/mapview?trainNumber=${analytics.trainNumber}`, {
+          method: 'GET',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/json',
+          },
+        });
 
-        // Use real-data mapview API instead of railroad-routes
-        const url = `/api/mapview?trainNumber=${trainNumber}`;
+        const contentType = res.headers.get('content-type') || '';
+        const rawBody = await res.text();
 
-        const response = await fetch(url);
-        const data = await response.json();
-
-        if (data.success && data.data?.route) {
-          const route = data.data.route;
-          // Convert mapview route to map format
-          const mapRoutes = [{
-            name: `${route.trainName} Route`,
-            active: true,
-            color: route.color || '#00E0FF',
-            coordinates: route.coordinates, // [lng, lat] pairs from mapview API
-          }];
-          setRailwayRoutesData(mapRoutes);
-          console.log(`[MapContent] Loaded REAL train route from mapview API`);
-        } else {
-          console.warn('[MapContent] Failed to load route from mapview:', data.error);
+        if (!contentType.includes('application/json')) {
+          throw new Error(`Map API returned non-JSON response (${res.status}).`);
         }
-      } catch (err) {
-        console.error('[MapContent] Error fetching mapview route:', err);
+
+        let data: MapViewResponse;
+        try {
+          data = JSON.parse(rawBody) as MapViewResponse;
+        } catch {
+          throw new Error('Map API returned malformed JSON.');
+        }
+
+        if (!res.ok) {
+          throw new Error(data?.message || data?.error || `Map API error (${res.status}).`);
+        }
+
+        if (!data?.success || !data?.data?.route) {
+          throw new Error(data?.message || data?.error || 'Route unavailable');
+        }
+
+        setLiveUnavailable(Boolean(data.liveUnavailable));
+  setLiveReason(data.liveDiagnostics?.reason || '');
+  setFailedProviders(Array.isArray(data.liveDiagnostics?.failedProviders) ? data.liveDiagnostics!.failedProviders! : []);
+
+        const nextRoute: RoutePayload = {
+          name: `${data.data.route.trainName || analytics.trainName} Route`,
+          color: data.data.route.color || '#00E0FF',
+          coordinates: data.data.route.coordinates || [],
+          stops: data.data.route.stops || [],
+        };
+
+        if (!cancelled) {
+          setRoute(nextRoute);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load route');
+          setRoute(null);
+        }
       } finally {
-        setRoutesLoading(false);
+        if (!cancelled) {
+          setRoutesLoading(false);
+        }
       }
+    }
+
+    fetchRoute();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [analytics.trainNumber, analytics.trainName]);
+
+  const gpsPosition = useMemo<[number, number] | null>(() => {
+    const lat = analytics.currentLocation?.latitude;
+    const lng = analytics.currentLocation?.longitude;
+
+    if (!lat || !lng || Number.isNaN(lat) || Number.isNaN(lng)) {
+      return null;
+    }
+
+    return [lat, lng];
+  }, [analytics.currentLocation]);
+
+  useEffect(() => {
+    const onTimelineHover = (event: Event) => {
+      const customEvent = event as CustomEvent<{ code?: string | null }>;
+      const code = (customEvent.detail?.code || '').toUpperCase();
+
+      stationMarkersRef.current.forEach(marker => {
+        const markerCode = String((marker.options as any)?.stationCode || '').toUpperCase();
+        const isActive = Boolean(code) && code === markerCode;
+        marker.setStyle({
+          radius: isActive ? 8 : 5,
+          color: isActive ? 'hsl(262, 83%, 58%)' : '#333',
+          fillColor: isActive ? 'hsl(262, 83%, 58%)' : '#ffffff',
+          weight: isActive ? 2 : 1,
+        });
+      });
     };
 
-    fetchRoutes();
-  }, [analytics.trainNumber]);
+    window.addEventListener('timeline-station-hover', onTimelineHover as EventListener);
+    return () => window.removeEventListener('timeline-station-hover', onTimelineHover as EventListener);
+  }, []);
 
-  // Fallback: use API routes or minimal fallback with REAL analytics coordinates
-  const railwayRoutes = useMemo(
-    () => railwayRoutesData.length > 0 ? railwayRoutesData : [
-      // Fallback: single-point route with REAL coordinates from analytics position service
-      {
-        name: `${analytics.trainName || 'Train'} Route (Loading...)`,
-        active: true,
-        color: '#00E0FF',
-        // Use REAL coordinates from realTimePositionService via analytics
-        coordinates: [
-          [analytics.currentLocation?.longitude || 77.2, analytics.currentLocation?.latitude || 28.6],
-        ],
-      },
-    ],
-    [railwayRoutesData, analytics.currentLocation]
-  );
-
-  // PHASE 3 FIX: Use analytics.nearbyTrains if available, not hardcoded mock
-  const nearbyTrainsData = useMemo(
-    () => analytics.nearbyTrains?.trains || [],
-    [analytics.nearbyTrains?.trains]
-  );
-
-  // Initialize map with enhanced features
   useEffect(() => {
-    if (!L) {
-      setError('Leaflet library not available');
-      setLoading(false);
+    if (!mapRef.current || !route || !hasValidCoords(route.coordinates)) {
       return;
     }
 
-    if (!mapRef.current) {
-      setLoading(false);
-      return;
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+      markerRef.current = null;
+      stationMarkersRef.current = [];
+      zoomControlRef.current = null;
+      routeLineRef.current = null;
     }
 
-    // Validate we have proper coordinates before initializing
-    if (
-      !analytics.currentLocation ||
-      typeof analytics.currentLocation.latitude !== 'number' ||
-      typeof analytics.currentLocation.longitude !== 'number' ||
-      isNaN(analytics.currentLocation.latitude) ||
-      isNaN(analytics.currentLocation.longitude)
-    ) {
-      console.log('⏳ Waiting for valid coordinates...');
-      setLoading(true);
-      setError(null);
-      return;
+    const firstPoint = route.coordinates[0];
+    const center: L.LatLngTuple = [firstPoint[1], firstPoint[0]];
+
+    // Ensure container is rendered and has dimensions before Leaflet init
+    if (!mapRef.current.offsetHeight || !mapRef.current.offsetWidth) {
+      const timer = window.setTimeout(() => {
+        if (!mapRef.current) return;
+        const map = L.map(mapRef.current, {
+          center,
+          zoom: 7,
+          minZoom: 4,
+          maxZoom: 16,
+          zoomControl: false,
+          preferCanvas: true,
+        });
+        mapInstanceRef.current = map;
+        initializeMapLayers(map, route, center);
+      }, 50);
+      return () => clearTimeout(timer);
     }
 
-    setLoading(true);
-    setError(null);
+    const map = L.map(mapRef.current, {
+      center,
+      zoom: 7,
+      minZoom: 4,
+      maxZoom: 16,
+      zoomControl: false,
+      preferCanvas: true,
+    });
 
-    // Validate container exists and is properly mounted
-    if (!mapRef.current || mapRef.current.offsetHeight === 0 || mapRef.current.offsetWidth === 0) {
-      console.log('⏳ Container not ready, waiting for proper layout...');
-      setTimeout(() => setLoading(false), 100);
-      return;
-    }
+    mapInstanceRef.current = map;
+    return initializeMapLayers(map, route, center);
 
-    // Check if map already exists on this container
-    if (mapRef.current && mapRef.current._leaflet_id) {
-      console.log('Map already initialized on this container, skipping recreation');
-      setLoading(false);
-      return;
-    }
+  }, [route, gpsPosition, analytics.currentLocation.stationCode]);
 
-    let newMap: any = null;
-
+  // Extracted map initialization function to ensure proper lifecycle
+  const initializeMapLayers = (
+    map: L.Map,
+    route: RoutePayload,
+    center: L.LatLngTuple
+  ) => {
     try {
-      const lat = analytics.currentLocation.latitude;
-      const lng = analytics.currentLocation.longitude;
-
-      console.log(`⏳ Initializing map at coordinates: ${lat}, ${lng}`);
-
-      // Ensure container is still valid before creating map
-      if (!mapRef.current) {
-        throw new Error('Map container is not mounted');
+      // Guard: check if map is still valid
+      if (!map || !map.getContainer()) {
+        console.warn('Map container unavailable before layer initialization');
+        return () => {};
       }
 
-      // Create map with dark theme
-      newMap = L.map(mapRef.current, {
-        center: [lat, lng],
-        zoom: 7,
-        minZoom: 4,
-        maxZoom: 16,
-        preferCanvas: true,
-      });
-
-      // 1. Dark base layer (Carto Dark Matter)
-      L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        {
-          attribution: '© Carto',
+      // Prevent canvas errors by using error boundaries
+      try {
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+          attribution: 'Carto',
           subdomains: 'abcd',
           maxZoom: 20,
-        }
-      ).addTo(newMap);
+        }).addTo(map);
+      } catch (tileError) {
+        console.error('Tile layer error:', tileError);
+      }
 
-      // 2. OpenRailwayMap tiles overlay
-      L.tileLayer(
-        'https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
-        {
+      try {
+        L.tileLayer('https://{s}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', {
           maxZoom: 19,
-          attribution: '© OpenStreetMap | © OpenRailwayMap',
-          tileSize: 256,
-          opacity: 0.8,
-        }
-      ).addTo(newMap);
+          opacity: 0.85,
+          attribution: 'OpenStreetMap/OpenRailwayMap',
+        }).addTo(map);
+      } catch (tileError) {
+        console.error('Railway tile layer error:', tileError);
+      }
 
-      // 3. Draw railway routes with route snapping visualization
-      railwayRoutes.forEach((route) => {
-        // Convert coordinates to Feature for Turf.js
-        const lineString = turf.lineString(route.coordinates);
+      const latLngRoute: L.LatLngTuple[] = route.coordinates.map(([lng, lat]) => [lat, lng]);
 
-        // Draw route polyline
-        const color = route.active ? route.color : '#666666';
-        const weight = route.active ? 4 : 2;
-        const opacity = route.active ? 0.9 : 0.4;
-
-        const polyline = L.polyline(route.coordinates, {
-          color: color,
-          weight: weight,
-          opacity: opacity,
-          dashArray: route.active ? '' : '8, 4',
+      try {
+        L.polyline(latLngRoute, {
+          color: 'rgba(0,0,0,0.35)',
+          weight: 7,
+          opacity: 1,
           lineCap: 'round',
           lineJoin: 'round',
-        }).addTo(newMap);
+        }).addTo(map);
 
-        // Add route label
-        if (route.active) {
-          const midIndex = Math.floor(route.coordinates.length / 2);
-          L.circleMarker(route.coordinates[midIndex], {
-            radius: 4,
-            fillColor: color,
-            color: 'white',
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.8,
-          }).addTo(newMap);
-        }
+        L.polyline(latLngRoute, {
+          color: '#F59E0B',
+          weight: 4,
+          opacity: 0.95,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(map);
+      } catch (polylineError) {
+        console.error('Polyline rendering error:', polylineError);
+      }
 
-        // Store active route for snapping
-        if (route.active) {
-          (newMap as any).activeRoute = lineString;
-        }
-      });
+      routeLineRef.current = turf.lineString(route.coordinates);
 
-      // 4. Snap train position to route and display
-      let snappedPosition = [
-        analytics.currentLocation.latitude,
-        analytics.currentLocation.longitude,
-      ];
+      route.stops
+        .filter(stop => typeof stop.lat === 'number' && typeof stop.lng === 'number')
+        .forEach(stop => {
+          const isCurrent = (stop.code || '').toUpperCase() === (analytics.currentLocation.stationCode || '').toUpperCase();
+          const stationMarker = L.circleMarker([stop.lat as number, stop.lng as number], {
+            radius: isCurrent ? 7 : 5,
+            fillColor: isCurrent ? 'hsl(262, 83%, 58%)' : '#ffffff',
+            fillOpacity: 1,
+            color: isCurrent ? 'hsl(262, 83%, 58%)' : '#333333',
+            weight: isCurrent ? 2 : 1,
+            pane: 'markerPane',
+          }) as L.CircleMarker & { options: L.CircleMarkerOptions & { stationCode?: string } };
 
-      // If we have the active route, snap to it
-      if ((newMap as any).activeRoute) {
-        try {
-          const trainPoint = turf.point([
-            analytics.currentLocation.longitude,
-            analytics.currentLocation.latitude,
-          ]);
-          const snapped = turf.nearestPointOnLine(
-            (newMap as any).activeRoute,
-            trainPoint,
-            { units: 'kilometers' }
-          );
-          snappedPosition = [snapped.geometry.coordinates[1], snapped.geometry.coordinates[0]];
-        } catch (e) {
-          console.log('Route snapping unavailable, using GPS position');
+          stationMarker.options.stationCode = stop.code;
+          stationMarker
+            .bindTooltip(
+              `${stop.name}${stop.code ? ` (${stop.code})` : ''}`,
+              {
+                permanent: true,
+                direction: 'right',
+                className: 'custom-tooltip',
+                offset: [8, 0],
+              }
+            )
+            .addTo(map);
+
+          stationMarker.on('mouseover', () => {
+            window.dispatchEvent(
+              new CustomEvent('map-station-hover', {
+                detail: { code: stop.code || null },
+              })
+            );
+          });
+          stationMarker.on('mouseout', () => {
+            window.dispatchEvent(
+              new CustomEvent('map-station-hover', {
+                detail: { code: null },
+              })
+            );
+          });
+
+          stationMarkersRef.current.push(stationMarker);
+        });
+
+      let markerPos: L.LatLngTuple = center;
+      if (gpsPosition) {
+        markerPos = [gpsPosition[0], gpsPosition[1]];
+
+        if (routeLineRef.current) {
+          try {
+            const snap = turf.nearestPointOnLine(routeLineRef.current, turf.point([gpsPosition[1], gpsPosition[0]]));
+            markerPos = [snap.geometry.coordinates[1], snap.geometry.coordinates[0]];
+          } catch {
+            markerPos = [gpsPosition[0], gpsPosition[1]];
+          }
         }
       }
 
-      // 5. Animated train marker with emoji
-      const trainIcon = L.divIcon({
-        html: `
-          <div style="
-            position: relative;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            filter: drop-shadow(0 0 8px rgba(0, 224, 255, 0.8));
-            animation: pulse-train 2s ease-in-out infinite;
-            font-size: 28px;
-            transform: rotate(${analytics.speed > 0 ? 'calc(var(--direction, 0) * 1deg)' : '0'});
-          ">
-            🚆
-          </div>
-          <style>
-            @keyframes pulse-train {
-              0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.1); }
-            }
-          </style>
-        `,
-        iconSize: [40, 40],
-        popupAnchor: [0, -20],
-        className: 'train-marker-animated',
-      });
-
-      const trainMarker = L.marker(snappedPosition, {
-        icon: trainIcon,
-        zIndexOffset: 1000,
-      }).addTo(newMap);
-
-      trainMarkerRef.current = trainMarker;
-
-      // Detailed popup for main train
-      const statusColor =
-        analytics.movementState === 'running' ? '#4caf50' :
-        analytics.movementState === 'halted' ? '#ff9800' :
-        '#d32f2f';
-
-      trainMarker.bindPopup(`
-        <div style="min-width: 240px; font-family: sans-serif;">
-          <h3 style="margin: 0 0 12px 0; color: ${statusColor}; font-size: 1.1em;">
-            🚆 ${analytics.trainName}
-          </h3>
-          <table style="width: 100%; font-size: 0.9em; border-spacing: 0; margin-bottom: 8px;">
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 4px 8px;">Train #</td>
-              <td style="padding: 4px 8px; font-weight: 600;">${analytics.trainNumber}</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 4px 8px;">Status</td>
-              <td style="padding: 4px 8px; font-weight: 600; color: ${statusColor};">
-                ${analytics.movementState.toUpperCase()}
-              </td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 4px 8px;">Speed</td>
-              <td style="padding: 4px 8px; font-weight: 600;">${analytics.speed} km/h</td>
-            </tr>
-            <tr style="border-bottom: 1px solid #eee;">
-              <td style="padding: 4px 8px;">Delay</td>
-              <td style="padding: 4px 8px; font-weight: 600;">${analytics.delay > 0 ? '+' : ''}${analytics.delay} min</td>
-            </tr>
-            <tr>
-              <td style="padding: 4px 8px;">Current</td>
-              <td style="padding: 4px 8px; font-weight: 600;">${analytics.currentLocation.stationName}</td>
-            </tr>
-          </table>
-        </div>
-      `, { maxWidth: 300 });
-
-      // 6. Add movement trail (history polyline)
-      const initialTrail = [snappedPosition];
-      const trailPolyline = L.polyline(initialTrail, {
-        color: '#00FF88',
+      markerRef.current = L.circleMarker(markerPos, {
+        radius: 8,
+        fillColor: '#8B5CF6',
+        fillOpacity: 1,
+        stroke: true,
+        color: '#ffffff',
         weight: 2,
-        opacity: 0.6,
-        dashArray: '2, 3',
-        lineCap: 'round',
-        lineJoin: 'round',
-      }).addTo(newMap);
+        className: 'live-train-pulse',
+      }).addTo(map);
 
-      trailPathRef.current = trailPolyline;
-      setTrailHistory([{
-        lat: snappedPosition[0],
-        lng: snappedPosition[1],
-        timestamp: Date.now(),
-      }]);
+      const customZoomControl = new L.Control({ position: 'bottomright' });
+      customZoomControl.onAdd = () => {
+        const container = L.DomUtil.create('div', 'railsense-zoom-controls');
+        container.innerHTML = `
+          <button type="button" class="railsense-zoom-btn" aria-label="Zoom in">+</button>
+          <button type="button" class="railsense-zoom-btn" aria-label="Zoom out">-</button>
+        `;
 
-      // 7. Nearby trains visualization
-      // NOTE: NearbyTrain data from analytics doesn't include lat/lng coordinates,
-      // so we can't display them on the map yet. This would require fetching
-      // position data for each nearby train from the railway network service.
-      // TODO: Implement in Phase 6 when position data is available for all trains
-      if (false && nearbyTrainsData.length > 0) {
-        console.log(`[MapContent] ${nearbyTrainsData.length} nearby trains available but positions not yet fetched`);
+        const buttons = container.querySelectorAll('.railsense-zoom-btn');
+        const zoomInBtn = buttons[0] as HTMLButtonElement;
+        const zoomOutBtn = buttons[1] as HTMLButtonElement;
+
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.on(zoomInBtn, 'click', () => {
+          if (mapInstanceRef.current) mapInstanceRef.current.zoomIn();
+        });
+        L.DomEvent.on(zoomOutBtn, 'click', () => {
+          if (mapInstanceRef.current) mapInstanceRef.current.zoomOut();
+        });
+
+        return container;
+      };
+
+      customZoomControl.addTo(map);
+      zoomControlRef.current = customZoomControl;
+
+      try {
+        const fitTarget = latLngRoute.length > 1 ? latLngRoute : [markerPos];
+        map.fitBounds(L.latLngBounds(fitTarget), { padding: [24, 24] });
+      } catch (boundsError) {
+        console.error('fitBounds error:', boundsError);
       }
 
-      // 8. Congestion heatmap
-      // TODO: When nearby train positions become available, add heatmap visualization here
-
-      // 9. Auto-zoom/fly to train with smooth animation
-      newMap.flyTo(snappedPosition, 8, {
-        duration: 1.5,
-        easeLinearity: 0.25,
+      // Use requestAnimationFrame for better timing with safety guard
+      const raf = window.requestAnimationFrame(() => {
+        try {
+          if (mapInstanceRef.current && mapRef.current && mapInstanceRef.current.getContainer()) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        } catch (invalidError) {
+          console.error('invalidateSize error:', invalidError);
+        }
       });
 
-      // 10. Add attribution for data sources
-      L.control.attribution({ prefix: false }).addTo(newMap);
-
-      setMap(newMap);
-      setError(null);
-      setLoading(false);
-      console.log('✓ Map initialized successfully with all features');
-    } catch (err) {
-      console.error('Map initialization error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to initialize map');
-      setLoading(false);
-    }
-
-    // Cleanup function - destroy map on unmount
-    return () => {
-      if (newMap) {
+      return () => {
         try {
-          newMap.remove();
-          console.log('Map cleaned up on unmount');
-        } catch (e) {
-          console.log('Map cleanup complete');
-        }
-      }
-    };
-  }, [map, analytics, railwayRoutes, nearbyTrainsData]);
+          // Stop any pending animations or callbacks
+          if (mapInstanceRef.current) {
+            // Remove all layers before destroying map
+            mapInstanceRef.current.eachLayer((layer: any) => {
+              try {
+                mapInstanceRef.current?.removeLayer(layer);
+              } catch (e) {
+                // Ignore layer removal errors
+              }
+            });
 
-  // Update train position and trail on every analytics change
+            mapInstanceRef.current.remove();
+            mapInstanceRef.current = null;
+          }
+        } catch (cleanupError) {
+          console.error('Map cleanup error:', cleanupError);
+        }
+        markerRef.current = null;
+        stationMarkersRef.current = [];
+        zoomControlRef.current = null;
+        routeLineRef.current = null;
+      };
+    } catch (error) {
+      console.error('Map initialization error:', error);
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+      return () => {};
+    }
+  };
+
   useEffect(() => {
-    if (!map || !L || !trainMarkerRef.current) return;
+    if (!mapInstanceRef.current || !markerRef.current || !gpsPosition) {
+      return;
+    }
 
     try {
-      // Calculate snapped position
-      let snappedPosition = [
-        analytics.currentLocation.latitude,
-        analytics.currentLocation.longitude,
-      ];
+      let nextPos: L.LatLngTuple = [gpsPosition[0], gpsPosition[1]];
 
-      if ((map as any).activeRoute) {
+      if (routeLineRef.current) {
         try {
-          const trainPoint = turf.point([
-            analytics.currentLocation.longitude,
-            analytics.currentLocation.latitude,
-          ]);
-          const snapped = turf.nearestPointOnLine(
-            (map as any).activeRoute,
-            trainPoint,
-            { units: 'kilometers' }
-          );
-          snappedPosition = [snapped.geometry.coordinates[1], snapped.geometry.coordinates[0]];
-        } catch (e) {
-          // Silently fall back to GPS position
+          const snap = turf.nearestPointOnLine(routeLineRef.current, turf.point([gpsPosition[1], gpsPosition[0]]));
+          nextPos = [snap.geometry.coordinates[1], snap.geometry.coordinates[0]];
+        } catch {
+          nextPos = [gpsPosition[0], gpsPosition[1]];
         }
       }
 
-      // Update train marker position
-      trainMarkerRef.current.setLatLng(snappedPosition);
-
-      // Update trail history
-      setTrailHistory((prevHistory) => {
-        const lastPoint = prevHistory[prevHistory.length - 1];
-        const distance = turf.distance(
-          turf.point([lastPoint.lng, lastPoint.lat]),
-          turf.point([snappedPosition[1], snappedPosition[0]]),
-          { units: 'kilometers' }
-        );
-
-        // Only add point if distance > 100m
-        if (distance > 0.1) {
-          return [
-            ...prevHistory,
-            {
-              lat: snappedPosition[0],
-              lng: snappedPosition[1],
-              timestamp: Date.now(),
-            },
-          ].slice(-50); // Keep only last 50 points
-        }
-        return prevHistory;
-      });
-
-      // Update trail polyline
-      if (trailPathRef.current) {
-        const trailCoords = trailHistory.map((point) => [point.lat, point.lng]);
-        trailPathRef.current.setLatLngs(trailCoords);
+      if (markerRef.current && mapInstanceRef.current) {
+        markerRef.current.setLatLng(nextPos);
       }
-    } catch (err) {
-      console.error('Map update error:', err);
+    } catch (error) {
+      console.error('Error updating marker position:', error);
     }
-  }, [analytics, map, trailHistory]);
+  }, [gpsPosition]);
 
-  if (error) {
+  if (routesLoading) {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '500px',
-          background: 'linear-gradient(135deg, #1a3a52 0%, #2a5a7a 100%)',
-          borderRadius: '8px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#ff6b6b',
-          padding: '20px',
-          boxSizing: 'border-box',
-          textAlign: 'center',
-        }}
-      >
-        <p style={{ fontSize: '1.1em', fontWeight: '600', marginBottom: '8px' }}>📍 Map Error</p>
-        <p style={{ fontSize: '0.9em', opacity: 0.9, marginBottom: '12px' }}>{error}</p>
-        <p style={{ fontSize: '0.85em', opacity: 0.7 }}>Install Leaflet: npm install leaflet @turf/turf</p>
+      <div style={{ width: '100%', height: '500px', borderRadius: '8px', background: '#172033', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9bb0d1' }}>
+        Loading route map...
       </div>
     );
   }
 
-  if (loading) {
+  if (!route || !hasValidCoords(route.coordinates)) {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '500px',
-          background: 'linear-gradient(135deg, #1a3a52 0%, #2a5a7a 100%)',
-          borderRadius: '8px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#20b2aa',
-          padding: '20px',
-          boxSizing: 'border-box',
-          textAlign: 'center',
-        }}
-      >
-        <div
-          style={{
-            width: '40px',
-            height: '40px',
-            border: '3px solid #20b2aa',
-            borderTop: '3px solid transparent',
-            borderRadius: '50%',
-            animation: 'spin 0.8s linear infinite',
-            marginBottom: '12px',
-          }}
-        />
-        <style>{`
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
-        <p style={{ fontSize: '1em', fontWeight: '600' }}>Loading map...</p>
-        <p style={{ fontSize: '0.85em', opacity: 0.8, marginTop: '8px' }}>📍 Fetching location data</p>
+      <div style={{ width: '100%', minHeight: '500px', borderRadius: '8px', background: '#141922', color: '#d0dbef', padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', maxWidth: '520px' }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '44px', height: '44px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', marginBottom: '12px' }}>
+            <MapPinOff size={20} color="#a6b2c8" />
+          </div>
+          <div style={{ fontWeight: 600, marginBottom: '8px', fontSize: '16px' }}>Map unavailable</div>
+          <div style={{ opacity: 0.85, marginBottom: '8px', fontSize: '13px' }}>{error || 'Route coordinates are missing.'}</div>
+          <div style={{ opacity: 0.75, fontSize: '12px', marginBottom: '4px' }}>
+            Live GPS unavailable: {liveUnavailable === null ? (analytics.speed <= 0 ? 'yes' : 'no') : liveUnavailable ? 'yes' : 'no'}
+          </div>
+          {liveReason ? (
+            <div style={{ opacity: 0.68, fontSize: '12px' }}>
+              Reason: {liveReason}{failedProviders.length ? ` (${failedProviders.join(', ')})` : ''}
+            </div>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -531,8 +487,8 @@ export default function MapContent({ analytics }: MapContentProps) {
         height: '500px',
         borderRadius: '8px',
         overflow: 'hidden',
-        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
-        background: '#1a1a1a',
+        background: '#0e1628',
+        boxShadow: '0 4px 14px rgba(0,0,0,0.35)',
       }}
       className="mapContainer"
     />

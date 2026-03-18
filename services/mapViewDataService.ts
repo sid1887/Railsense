@@ -11,7 +11,7 @@
  */
 
 import { realTimePositionService } from './realTimePositionService';
-import { REAL_TRAINS_CATALOG, getTrainByNumber } from './realTrainsCatalog';
+import { getTrainByNumber, getAllTrains } from './realTrainsCatalog';
 
 /**
  * GeoJSON Feature for a train on map

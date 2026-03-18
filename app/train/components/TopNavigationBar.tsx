@@ -1,7 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Search, Eye, Zap } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
+import { Search } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import SubsidiaryServicesDropdown from './SubsidiaryServicesDropdown';
 import './design-system.css';
 
 interface TopNavigationBarProps {
@@ -17,14 +20,47 @@ interface TopNavigationBarProps {
 export default function TopNavigationBar({
   trainNumber = '14645',
   trainName = 'Hussain Sagar Express',
-  showHeatmap = false,
-  showDemo = false,
-  onHeatmapToggle,
-  onDemoToggle,
+
   onTrainSearch,
 }: TopNavigationBarProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Debounced search handler
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        // Try to parse query as train number (numbers only)
+        const cleanQuery = searchQuery.replace(/\D/g, ''); // Extract only digits
+        if (cleanQuery.length > 0) {
+          setSearchResults([cleanQuery]);
+        } else {
+          setSearchResults([]);
+        }
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleSearchSelect = (trainNum: string) => {
+    onTrainSearch?.(trainNum);
+    setSearchQuery('');
+    setSearchOpen(false);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      const cleanQuery = searchQuery.replace(/\D/g, '');
+      if (cleanQuery) {
+        handleSearchSelect(cleanQuery);
+      }
+    }
+  };
 
   return (
     <>
@@ -55,8 +91,8 @@ export default function TopNavigationBar({
             style={{
               fontSize: '18px',
               fontWeight: '700',
-              fontFamily: 'Inter, sans-serif',
-              color: 'hsl(160, 84%, 44%)',
+              fontFamily: 'Figtree, sans-serif',
+              color: 'hsl(262, 83%, 58%)',
               whiteSpace: 'nowrap',
             }}
           >
@@ -74,9 +110,33 @@ export default function TopNavigationBar({
             }}
             className="hide-mobile"
           >
-            <span>Home</span>
+            <Link
+              href="/"
+              style={{
+                color: 'hsl(215, 12%, 50%)',
+                textDecoration: 'none',
+                cursor: 'pointer',
+                transition: 'color 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'hsl(190, 100%, 50%)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'hsl(215, 12%, 50%)')}
+            >
+              Home
+            </Link>
             <span>/</span>
-            <span>Train {trainNumber}</span>
+            <Link
+              href={`/train/${trainNumber}`}
+              style={{
+                color: 'hsl(215, 12%, 50%)',
+                textDecoration: 'none',
+                cursor: 'pointer',
+                transition: 'color 0.2s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = 'hsl(190, 100%, 50%)')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'hsl(215, 12%, 50%)')}
+            >
+              Train {trainNumber}
+            </Link>
             <span>/</span>
             <span style={{ color: 'hsl(210, 20%, 92%)' }}>Status</span>
           </div>
@@ -96,20 +156,27 @@ export default function TopNavigationBar({
                 alignItems: 'center',
                 height: '36px',
                 backgroundColor: 'hsl(220, 16%, 14%)',
-                border: '1px solid hsl(220, 14%, 18%)',
+                border: searchOpen ? '1px solid hsl(262, 83%, 58%)' : '1px solid hsl(220, 14%, 18%)',
                 borderRadius: '8px',
                 paddingLeft: '12px',
                 paddingRight: '12px',
                 gap: '8px',
+                transition: 'border-color 150ms ease',
               }}
             >
               <Search size={16} style={{ color: 'hsl(215, 12%, 50%)' }} />
               <input
+                ref={searchInputRef}
                 type="text"
-                placeholder="Search train number or name..."
+                placeholder="Search train number..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setSearchOpen(true)}
+                onBlur={() => {
+                  // Delay blur to allow click on dropdown items
+                  setTimeout(() => setSearchOpen(false), 200);
+                }}
+                onKeyPress={handleKeyPress}
                 style={{
                   flex: 1,
                   background: 'none',
@@ -122,8 +189,13 @@ export default function TopNavigationBar({
             </div>
 
             {/* Search Dropdown */}
-            {searchOpen && searchQuery && (
-              <div
+            <AnimatePresence>
+            {searchOpen && searchQuery.trim() && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.15 }}
                 style={{
                   position: 'absolute',
                   top: '40px',
@@ -138,109 +210,50 @@ export default function TopNavigationBar({
                   boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)',
                 }}
               >
-                {/* Mock Search Results */}
-                {['12955', '14645', '15432'].map((num) => (
-                  <div
-                    key={num}
-                    onClick={() => {
-                      onTrainSearch?.(num);
-                      setSearchQuery('');
-                      setSearchOpen(false);
-                    }}
-                    style={{
-                      padding: '10px 12px',
-                      borderBottom: '1px solid hsl(220, 14%, 18%)',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      transition: 'background-color 0.2s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = 'rgba(29, 209, 176, 0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    <div style={{ fontWeight: '600', fontSize: '13px' }}>Train {num}</div>
-                    <div style={{ fontSize: '11px', color: 'hsl(215, 12%, 50%)' }}>
-                      Express Service
+                {searchResults.length > 0 ? (
+                  searchResults.map((num) => (
+                    <div
+                      key={num}
+                      onClick={() => handleSearchSelect(num)}
+                      style={{
+                        padding: '10px 12px',
+                        borderBottom: '1px solid hsl(220, 14%, 18%)',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        transition: 'background-color 150ms ease',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.12)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
+                    >
+                      <div style={{ fontWeight: '600', fontSize: '13px' }}>Train {num}</div>
+                      <div style={{ fontSize: '11px', color: 'hsl(215, 12%, 50%)' }}>
+                        Press Enter or click to search
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: '10px 12px', color: 'hsl(215, 12%, 50%)', fontSize: '13px' }}>
+                    <div>Enter train number</div>
+                    <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                      Example: 12955, 14645, 16731
                     </div>
                   </div>
-                ))}
-              </div>
+                )}
+              </motion.div>
             )}
+            </AnimatePresence>
           </div>
         </div>
 
-        {/* RIGHT SECTION — Toggles */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '20px',
-            marginLeft: 'auto',
-          }}
-        >
-          {/* Heatmap Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label
-              style={{
-                fontSize: '11px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                color: 'hsl(215, 12%, 50%)',
-                letterSpacing: '0.05em',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={showHeatmap}
-                onChange={(e) => onHeatmapToggle?.(e.target.checked)}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  marginRight: '8px',
-                  cursor: 'pointer',
-                  accentColor: 'hsl(160, 84%, 44%)',
-                }}
-              />
-              Heatmap
-            </label>
-          </div>
-
-          {/* Demo Toggle */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label
-              style={{
-                fontSize: '11px',
-                fontWeight: '600',
-                textTransform: 'uppercase',
-                color: 'hsl(215, 12%, 50%)',
-                letterSpacing: '0.05em',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={showDemo}
-                onChange={(e) => onDemoToggle?.(e.target.checked)}
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  marginRight: '8px',
-                  cursor: 'pointer',
-                  accentColor: 'hsl(160, 84%, 44%)',
-                }}
-              />
-              Demo
-            </label>
-          </div>
+        {/* RIGHT SECTION — Intelligence Dropdown */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <SubsidiaryServicesDropdown trainNumber={trainNumber || '14645'} displayLabel="Intelligence" />
         </div>
+
       </div>
 
       {/* Spacer for fixed nav */}

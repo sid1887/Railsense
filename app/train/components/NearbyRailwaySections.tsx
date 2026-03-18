@@ -91,10 +91,12 @@ export default function NearbyRailwaySections({
         <div
           style={{
             fontSize: '12px',
-            color: 'hsl(215, 12%, 50%)',
-            backgroundColor: 'rgba(29, 209, 176, 0.1)',
+            color: 'hsl(0, 0%, 98%)',
+            backgroundColor: 'rgba(139, 92, 246, 0.16)',
+            border: '1px solid rgba(139, 92, 246, 0.4)',
             padding: '4px 10px',
-            borderRadius: '8px',
+            borderRadius: '999px',
+            fontWeight: 600,
           }}
         >
           {sections.length} nearby
@@ -125,6 +127,9 @@ export default function NearbyRailwaySections({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
+                transition: 'background-color 150ms ease',
+                borderRadius: '8px',
+                padding: '4px 6px',
               }}
             >
               {/* Section Code Pill */}

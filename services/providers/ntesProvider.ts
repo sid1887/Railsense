@@ -34,6 +34,7 @@ class NTESProvider implements TrainProvider {
 
   private scrapedCache = new Map<string, { data: NTESStatus; timestamp: number }>();
   private CACHE_TTL_MS = 30000; // 30s cache for NTES data
+  private ENABLE_MOCK_MODE = process.env.ENABLE_MOCK_LIVE_DATA === 'true';
 
   /**
    * Fetch status for a single train from NTES
@@ -56,9 +57,11 @@ class NTESProvider implements TrainProvider {
         };
       }
 
-      // In production: call ntesScraperWorker.scrapeTrainStatus(trainNumber)
-      // For now: return mock NTES response
-      const nteData = await this._mockFetchFromNTES(trainNumber);
+      // Production path: no fabricated status.
+      // Keep mock behind explicit dev flag only.
+      const nteData = this.ENABLE_MOCK_MODE
+        ? await this._mockFetchFromNTES(trainNumber)
+        : null;
 
       if (!nteData) {
         this.recordFailure('No NTES data found');

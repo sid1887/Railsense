@@ -12,6 +12,7 @@ interface StatusBarProps {
   lastUpdated?: string;
   selectedTrain?: string;
   onTrainSelect?: (trainNumber: string) => void;
+  nearbyTrains?: Array<{ number: string; status: 'halted' | 'moving' | 'delayed' }>;
 }
 
 export default function StatusBar({
@@ -21,13 +22,14 @@ export default function StatusBar({
   lastUpdated = '12:34:56 PM',
   selectedTrain = '14645',
   onTrainSelect,
+  nearbyTrains: nearbyTrainsOverride,
 }: StatusBarProps) {
-  const nearbyTrains = [
-    { number: '12955', status: 'halted' },
-    { number: '14645', status: 'moving' },
-    { number: '15432', status: 'halted' },
-    { number: '16789', status: 'moving' },
-    { number: '17654', status: 'delayed' },
+  const nearbyTrains = nearbyTrainsOverride || [
+    { number: '12955', status: 'halted' as const },
+    { number: '14645', status: 'moving' as const },
+    { number: '15432', status: 'halted' as const },
+    { number: '16789', status: 'moving' as const },
+    { number: '17654', status: 'delayed' as const },
   ];
 
   return (

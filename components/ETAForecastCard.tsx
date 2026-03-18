@@ -123,6 +123,9 @@ export default function ETAForecastCard({
   const scheduledTime = scheduledArrival ? new Date(scheduledArrival) : null;
   const predictedTime = new Date(pred.eta);
   const timeDiff = scheduledTime ? Math.round((predictedTime.getTime() - scheduledTime.getTime()) / 60000) : null;
+  const speedPercent = Math.min(100, Math.max(0, Math.round((currentStatus.speed / 130) * 100)));
+  const distancePercent = Math.min(100, Math.max(0, 100 - Math.round((currentStatus.distanceToDestination / 1200) * 100)));
+  const stationPercent = Math.min(100, Math.max(0, 100 - Math.round((currentStatus.stationsRemaining / 40) * 100)));
 
   const getETAColor = (riskLevel: string) => {
     switch (riskLevel) {
@@ -234,7 +237,7 @@ export default function ETAForecastCard({
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.1 }}
-                className="flex items-start gap-3 p-3 rounded-lg bg-dark-card/50 border border-dark-border/50"
+                className="flex items-start gap-3 p-4 rounded-lg bg-dark-card/60 border border-dark-border/50"
               >
                 {pred.riskLevel === 'low' ? (
                   <CheckCircle2 size={18} className="text-green-400 mt-0.5 shrink-0" />
@@ -255,19 +258,53 @@ export default function ETAForecastCard({
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="mt-6 pt-6 border-t border-dark-border grid grid-cols-3 gap-3"
+          className="mt-6 pt-6 border-t border-dark-border"
         >
-          <div className="text-center p-2">
-            <p className="text-xs text-text-secondary">Current Speed</p>
-            <p className="font-bold text-text-primary">{currentStatus.speed} km/h</p>
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            <div className="text-center p-3 rounded-lg bg-dark-card/60 border border-dark-border/60">
+              <p className="text-xs text-text-secondary">Current Speed</p>
+              <p className="font-bold text-text-primary">{currentStatus.speed} km/h</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-dark-card/60 border border-dark-border/60">
+              <p className="text-xs text-text-secondary">Distance</p>
+              <p className="font-bold text-text-primary">{currentStatus.distanceToDestination} km</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-dark-card/60 border border-dark-border/60">
+              <p className="text-xs text-text-secondary">Stations</p>
+              <p className="font-bold text-text-primary">{currentStatus.stationsRemaining}</p>
+            </div>
           </div>
-          <div className="text-center p-2">
-            <p className="text-xs text-text-secondary">Distance</p>
-            <p className="font-bold text-text-primary">{currentStatus.distanceToDestination} km</p>
-          </div>
-          <div className="text-center p-2">
-            <p className="text-xs text-text-secondary">Stations</p>
-            <p className="font-bold text-text-primary">{currentStatus.stationsRemaining}</p>
+
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center justify-between text-xs text-text-secondary mb-1">
+                <span>Speed utilization</span>
+                <span>{speedPercent}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-dark-card border border-dark-border overflow-hidden">
+                <div className="h-full bg-accent-blue" style={{ width: `${speedPercent}%` }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between text-xs text-text-secondary mb-1">
+                <span>Journey progress</span>
+                <span>{distancePercent}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-dark-card border border-dark-border overflow-hidden">
+                <div className="h-full" style={{ width: `${distancePercent}%`, backgroundColor: '#f59e0b' }} />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between text-xs text-text-secondary mb-1">
+                <span>Station completion</span>
+                <span>{stationPercent}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-dark-card border border-dark-border overflow-hidden">
+                <div className="h-full" style={{ width: `${stationPercent}%`, backgroundColor: '#22c55e' }} />
+              </div>
+            </div>
           </div>
         </motion.div>
       )}

@@ -7,8 +7,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { realTimePositionService } from '@/services/realTimePositionService';
 
+const ENABLE_MOCK_LIVE_DATA = process.env.ENABLE_MOCK_LIVE_DATA === 'true';
+
 export async function GET(request: NextRequest) {
   try {
+    if (!ENABLE_MOCK_LIVE_DATA) {
+      return NextResponse.json(
+        {
+          success: false,
+          liveUnavailable: true,
+          error: 'Live train-position provider unavailable in production path',
+          data: null,
+        },
+        { status: 503 }
+      );
+    }
+
     const trainNumber = request.nextUrl.searchParams.get('trainNumber');
     const lat = request.nextUrl.searchParams.get('lat');
     const lng = request.nextUrl.searchParams.get('lng');

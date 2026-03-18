@@ -1,257 +1,209 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Search, Clock, RotateCw } from 'lucide-react';
-import { HaltAnalysisCard } from '@/components/HaltAnalysisCard';
-import { HaltAnalysis } from '@/services/haltReasonService';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Clock, AlertTriangle } from 'lucide-react';
+import SubsidiaryServiceNavBar from '@/app/components/SubsidiaryServiceNavBar';
 
-interface PlatformStatus {
-  stationId: string;
-  stationName: string;
-  totalPlatforms: number;
-  occupiedPlatforms: number;
-  availablePlatforms: number;
-  avgOccupancyTime: number;
+interface HaltAnalysisData {
+  trainNumber: string;
+  trainName: string;
+  currentStatus: {
+    isHalted: boolean;
+    haltReason?: string;
+    haltDuration?: number;
+  };
+  haltAnalysis: {
+    probableCauses: Array<{ cause: string; probability: number }>;
+    signalStrength: number;
+  };
+  impactAnalysis: {
+    delayAccumulation: number;
+    cascadeRisk: string;
+    affectedStations: number;
+  };
+  recommendations: string[];
 }
 
-export default function HaltAnalysisPage() {
-  const [selectedTrain, setSelectedTrain] = useState('12723-RAJ');
-  const [selectedLocation, setSelectedLocation] = useState('SEC-002');
-  const [haltDuration, setHaltDuration] = useState(15);
-  const [analysis, setAnalysis] = useState<HaltAnalysis | null>(null);
-  const [platforms, setPlatforms] = useState<PlatformStatus[]>([]);
-  const [loading, setLoading] = useState(false);
+function HaltAnalysisContent() {
+  const searchParams = useSearchParams();
+  const trainNumber = searchParams.get('trainNumber') || '01211';
 
-  const trains = [
-    { number: '12723-RAJ', name: 'Rajdhani Express' },
-    { number: '12659-SHAB', name: 'Shatabdi Express' },
-    { number: '12809-SF', name: 'Superfast Express' },
-    { number: '12709-EXP', name: 'Express' },
-    { number: '11010-PASS', name: 'Passenger' },
-    { number: '12234-FRT', name: 'Freight' },
-  ];
+  const [analysis, setAnalysis] = useState<HaltAnalysisData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const locations = [
-    { id: 'SEC-001', name: 'Hyderabad → Secunderabad' },
-    { id: 'SEC-002', name: 'Secunderabad → Kazipet' },
-    { id: 'SEC-003', name: 'Kazipet → Warangal' },
-    { id: 'SEC-004', name: 'Hyderabad → Vijayawada' },
-    { id: 'SEC-005', name: 'Vijayawada → Visakhapatnam' },
-    { id: 'SEC-006', name: 'Hyderabad → Bengaluru' },
-  ];
-
-  // Fetch initial data
   useEffect(() => {
-    fetchPlatformStatus();
-    analyzeHalt();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Analyze halt on parameter change
-  useEffect(() => {
-    analyzeHalt();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTrain, selectedLocation, haltDuration]);
-
-  const fetchPlatformStatus = async () => {
-    try {
-      const response = await fetch('/api/halt-analysis?action=platform-status');
-      const result = await response.json();
-      if (result.success) {
-        setPlatforms(result.data);
+    const fetchAnalysis = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(`/api/system/halt-analysis?trainNumber=${trainNumber}`);
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        const data = await response.json();
+        setAnalysis(data);
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch halt analysis');
+        setAnalysis(null);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Failed to fetch platform status:', error);
-    }
-  };
+    };
 
-  const analyzeHalt = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(
-        `/api/halt-analysis?action=analyze-halt&train=${selectedTrain}&location=${selectedLocation}&duration=${haltDuration}`
-      );
-      const result = await response.json();
-      if (result.success) {
-        setAnalysis(result.data);
-      }
-    } catch (error) {
-      console.error('Failed to analyze halt:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchAnalysis();
+  }, [trainNumber]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[hsl(230,25%,10%)] to-[hsl(240,20%,14%)] p-6">
-      <div className="max-w-7xl mx-auto">
+      <SubsidiaryServiceNavBar trainNumber={trainNumber} currentService="Halt Analysis" />
+      <div className="max-w-6xl mx-auto" style={{ marginTop: '70px' }}>
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 font-semibold tracking-tight">Halt Reason Analysis</h1>
-          <p className="text-[hsl(220,20%,70%)]">Intelligent analysis of train halts using multiple detection signals</p>
+          <div className="flex items-center gap-3 mb-2">
+            <AlertTriangle className="w-8 h-8 text-orange-400" />
+            <h1 className="text-4xl font-bold text-white">Halt Analysis</h1>
+          </div>
+          <p className="text-[hsl(220,20%,70%)]">Train: {trainNumber}</p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Control Panel */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Train Selection */}
-            <div className="bg-[hsl(230,20%,16%)] rounded-lg shadow-lg p-6 border border-white/[0.06]" style={{boxShadow: '0 0 0 1px rgba(255,255,255,0.05), 0 4px 20px rgba(0,0,0,0.3)'}}>
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2 font-semibold">
-                <Search className="w-5 h-5" />
-                Select Train & Section
-              </h2>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-[hsl(220,15%,55%)] mb-2">Train</label>
-                  <select
-                    value={selectedTrain}
-                    onChange={(e) => setSelectedTrain(e.target.value)}
-                    className="w-full px-3 py-2 bg-[hsl(230,20%,20%)] border border-white/[0.06] rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {trains.map((train) => (
-                      <option key={train.number} value={train.number}>
-                        {train.number} - {train.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-[hsl(220,15%,55%)] mb-2">Section</label>
-                  <select
-                    value={selectedLocation}
-                    onChange={(e) => setSelectedLocation(e.target.value)}
-                    className="w-full px-3 py-2 bg-[hsl(230,20%,20%)] border border-white/[0.06] rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {locations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>
-                        {loc.id} - {loc.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-[hsl(220,15%,55%)] mb-2">
-                    Halt Duration: {haltDuration} minutes
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="60"
-                    value={haltDuration}
-                    onChange={(e) => setHaltDuration(parseInt(e.target.value, 10))}
-                    className="w-full h-2 bg-[hsl(230,20%,25%)] rounded-lg appearance-none cursor-pointer accent-blue-500"
-                  />
-                  <div className="flex justify-between text-xs text-[hsl(220,15%,55%)] mt-2">
-                    <span>1 min</span>
-                    <span>30 min</span>
-                    <span>60 min</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 pt-2">
-                  <Clock className="w-4 h-4 text-[hsl(220,15%,55%)]" />
-                  <span className="text-sm text-[hsl(220,20%,70%)]">
-                    Analysis updates automatically as you change parameters
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Analysis Result */}
-            {analysis && (
-              <div>
-                {loading && (
-                  <div className="flex items-center justify-center py-8">
-                    <RotateCw className="w-6 h-6 text-blue-500 animate-spin" />
-                  </div>
-                )}
-                {!loading && <HaltAnalysisCard analysis={analysis} />}
-              </div>
-            )}
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
           </div>
+        )}
 
-          {/* Sidebar - Platform Status */}
-          <div className="bg-[hsl(230,20%,16%)] rounded-lg shadow-lg p-6 h-fit border border-white/[0.06]" style={{boxShadow: '0 0 0 1px rgba(255,255,255,0.05), 0 4px 20px rgba(0,0,0,0.3)'}}>
-            <h3 className="text-lg font-bold text-white mb-4 font-semibold">Station Platforms</h3>
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6 mb-6">
+            <p className="text-red-400">Error: {error}</p>
+          </div>
+        )}
 
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {platforms.map((station) => {
-                const occupancyRate = (station.occupiedPlatforms / station.totalPlatforms) * 100;
-                const occupancyColor =
-                  occupancyRate > 80 ? 'bg-red-500/20 border border-red-500/30' : occupancyRate > 60 ? 'bg-orange-500/20 border border-orange-500/30' : 'bg-green-500/20 border border-green-500/30';
-
-                return (
-                  <div key={station.stationId} className={`rounded-lg p-3 ${occupancyColor}`}>
-                    <h4 className="font-semibold text-sm text-white">{station.stationName}</h4>
-
-                    <div className="mt-2 space-y-1 text-xs text-[hsl(220,20%,70%)]">
-                      <div className="flex justify-between">
-                        <span>Occupied:</span>
-                        <span className="font-bold text-white">
-                          {station.occupiedPlatforms}/{station.totalPlatforms}
-                        </span>
+        {analysis && !loading && (
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Main Analysis */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Status Card */}
+              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+                <h2 className="text-xl font-bold text-white mb-4">Current Status</h2>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[hsl(220,15%,55%)] text-sm">Halted</p>
+                    <p className="text-2xl font-bold text-white">
+                      {analysis.currentStatus.isHalted ? '🛑 Yes' : '✅ No'}
+                    </p>
+                  </div>
+                  {analysis.currentStatus.isHalted && (
+                    <>
+                      <div>
+                        <p className="text-[hsl(220,15%,55%)] text-sm">Halt Reason</p>
+                        <p className="text-lg font-semibold text-white">{analysis.currentStatus.haltReason || 'Unknown'}</p>
                       </div>
-                      <div className="flex justify-between">
-                        <span>Available:</span>
-                        <span className="font-bold text-green-400">{station.availablePlatforms}</span>
-                      </div>
-
-                      {/* Occupancy Bar */}
-                      <div className="mt-2">
-                        <div className="w-full bg-[hsl(230,20%,25%)] rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              occupancyRate > 80 ? 'bg-red-500' : occupancyRate > 60 ? 'bg-orange-500' : 'bg-green-500'
-                            }`}
-                            style={{ width: `${occupancyRate}%` }}
-                          />
+                      {analysis.currentStatus.haltDuration && (
+                        <div>
+                          <p className="text-[hsl(220,15%,55%)] text-sm">Duration</p>
+                          <p className="text-lg font-semibold text-white">{analysis.currentStatus.haltDuration} minutes</p>
                         </div>
-                        <div className="text-right mt-1 font-semibold text-xs text-white">
-                          {occupancyRate.toFixed(0)}%
-                        </div>
-                      </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
 
-                      <div className="text-[hsl(220,15%,55%)] text-xs">
-                        Avg dwell: {station.avgOccupancyTime} min
+              {/* Probable Causes */}
+              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+                <h2 className="text-xl font-bold text-white mb-4">Probable Causes</h2>
+                <div className="space-y-3">
+                  {analysis.haltAnalysis.probableCauses.map((item, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <span className="text-white">{item.cause}</span>
+                        <span className="text-[hsl(220,20%,70%)] text-sm">{(item.probability * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="w-full bg-[hsl(230,20%,25%)] rounded-full h-2">
+                        <div
+                          className="h-2 rounded-full bg-blue-500"
+                          style={{ width: `${item.probability * 100}%` }}
+                        />
                       </div>
                     </div>
+                  ))}
+                </div>
+                <p className="text-[hsl(220,15%,55%)] text-sm mt-4">
+                  Signal Strength: {(analysis.haltAnalysis.signalStrength * 100).toFixed(0)}%
+                </p>
+              </div>
+
+              {/* Impact Analysis */}
+              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+                <h2 className="text-xl font-bold text-white mb-4">Impact Analysis</h2>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <p className="text-[hsl(220,15%,55%)] text-sm">Delay Accumulation</p>
+                    <p className="text-2xl font-bold text-red-400">+{analysis.impactAnalysis.delayAccumulation} min</p>
                   </div>
-                );
-              })}
+                  <div>
+                    <p className="text-[hsl(220,15%,55%)] text-sm">Cascade Risk</p>
+                    <p className={`text-2xl font-bold ${
+                      analysis.impactAnalysis.cascadeRisk === 'High' ? 'text-red-400' :
+                      analysis.impactAnalysis.cascadeRisk === 'Medium' ? 'text-orange-400' : 'text-green-400'
+                    }`}>
+                      {analysis.impactAnalysis.cascadeRisk}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[hsl(220,15%,55%)] text-sm">Affected Stations</p>
+                    <p className="text-2xl font-bold text-white">{analysis.impactAnalysis.affectedStations}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recommendations */}
+              {analysis.recommendations.length > 0 && (
+                <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+                  <h2 className="text-xl font-bold text-white mb-4">Recommendations</h2>
+                  <ul className="space-y-2">
+                    {analysis.recommendations.map((rec, idx) => (
+                      <li key={idx} className="flex gap-3 text-[hsl(220,20%,70%)]">
+                        <span className="text-green-400 font-bold">•</span>
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
-            {/* Legend */}
-            <div className="mt-6 pt-6 border-t border-white/[0.06]">
-              <h4 className="text-sm font-semibold text-[hsl(220,15%,55%)] mb-3">Halt Reason Categories</h4>
-              <div className="space-y-2 text-xs text-[hsl(220,20%,70%)]">
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-blue-600" />
-                  <span>Infrastructure</span>
+            {/* Info Sidebar */}
+            <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06] h-fit">
+              <h3 className="text-lg font-bold text-white mb-4">Train Info</h3>
+              <div className="space-y-3 text-sm">
+                <div>
+                  <p className="text-[hsl(220,15%,55%)]">Train Number</p>
+                  <p className="text-white font-semibold">{analysis.trainNumber}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-yellow-600" />
-                  <span>Traffic/Congestion</span>
+                <div>
+                  <p className="text-[hsl(220,15%,55%)]">Train Name</p>
+                  <p className="text-white font-semibold">{analysis.trainName}</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-orange-600" />
-                  <span>Maintenance</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-600" />
-                  <span>Operational</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-600" />
-                  <span>Safety</span>
+                <div className="pt-4 border-t border-white/[0.06]">
+                  <p className="text-[hsl(220,15%,55%)] text-xs">Last Updated</p>
+                  <p className="text-[hsl(220,20%,70%)] text-xs">{new Date().toLocaleTimeString()}</p>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
+  );
+}
+
+export default function HaltAnalysisPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div></div>}>
+      <HaltAnalysisContent />
+    </Suspense>
   );
 }

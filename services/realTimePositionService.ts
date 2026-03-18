@@ -1,10 +1,13 @@
 /**
- * Real-Time Train Position Service
- * Tracks live positions of all trains based on schedule and real time
- * Updates positions every 30 seconds with realistic movement
+ * Real-Time Train Position Service - ENHANCED
+ * Generates LIVE train positions based on:
+ * - Actual train schedules (departure/arrival times)
+ * - Real route coordinates (intermediate stations)
+ * - Current time with realistic speed variations
+ * - Updates LIVE on every API call (not cached)
  */
 
-import { REAL_TRAINS_CATALOG } from './realTrainsCatalog';
+import { getTrainByNumber, getAllTrains } from './realTrainsCatalog';
 
 export interface TrainPosition {
   trainNumber: string;
@@ -15,150 +18,177 @@ export interface TrainPosition {
   currentStationCode: string;
   nextStation: string;
   nextStationCode: string;
-  currentSpeed: number; // km/h
-  distanceTraveled: number; // km traveled so far
-  totalDistance: number; // total journey distance
-  percentageComplete: number; // 0-100
+  currentSpeed: number;
+  distanceTraveled: number;
+  totalDistance: number;
+  percentageComplete: number;
   isMoving: boolean;
   lastUpdated: number;
-  estimatedDelay: number; // minutes
+  estimatedDelay: number;
   status: 'On Time' | 'Delayed' | 'Halted' | 'Approaching Station' | 'At Station';
 }
 
 class RealTimePositionService {
   private positions: Map<string, TrainPosition> = new Map();
-  private simulationStartTime = Date.now();
-  private updateInterval = 30000; // Update every 30 seconds
 
   constructor() {
     this.initializePositions();
-    this.startSimulation();
+  }
+
+  /**
+   * CRITICAL: Calculate position based on ACTUAL SCHEDULE
+   * This makes sure trains move realistically according to their departure times
+   */
+  private calculatePositionBySchedule(trainNumber: string): TrainPosition | null {
+    const train = getTrainByNumber(trainNumber);
+    if (!train || !train.stations || train.stations.length < 2) {
+      return null;
+    }
+
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+
+    // Parse departure time (format: "HH:MM")
+    const [depHour, depMin] = train.departureTime.split(':').map(Number);
+    const departureTimeInMinutes = depHour * 60 + depMin;
+
+    // Calculate journey progress (cyclical - repeats daily)
+    let minutesSinceDeparture = (currentTimeInMinutes - departureTimeInMinutes + 1440) % 1440;
+
+    // If train hasn't departed yet today, assume it departed yesterday
+    if (currentTimeInMinutes < departureTimeInMinutes) {
+      minutesSinceDeparture = currentTimeInMinutes + (1440 - departureTimeInMinutes);
+    }
+
+    const journeyProgress = Math.min(minutesSinceDeparture / train.duration, 1);
+    const totalKmOnJourney = train.distance * journeyProgress;
+
+    // Find current segment based on accumulated distance
+    let currentSegmentIndex = 0;
+    let accumulatedKm = 0;
+
+    for (let i = 0; i < train.stations.length - 1; i++) {
+      const stationKm = train.stations[i].km || (train.distance * i / (train.stations.length - 1));
+      const nextStationKm = train.stations[i + 1].km || (train.distance * (i + 1) / (train.stations.length - 1));
+
+      if (totalKmOnJourney >= stationKm && totalKmOnJourney < nextStationKm) {
+        currentSegmentIndex = i;
+        accumulatedKm = stationKm;
+        break;
+      }
+    }
+
+    const currentStation = train.stations[currentSegmentIndex];
+    const nextStation = train.stations[Math.min(currentSegmentIndex + 1, train.stations.length - 1)];
+
+    const segmentDistance = (nextStation.km || 0) - (currentStation.km || 0) || 1;
+    const distanceInSegment = totalKmOnJourney - (currentStation.km || 0);
+    const segmentProgress = Math.max(0, Math.min(1, distanceInSegment / segmentDistance));
+
+    // LIVE POSITION: Interpolate between stations
+    const currentLat = currentStation.lat + (nextStation.lat - currentStation.lat) * segmentProgress;
+    const currentLng = currentStation.lng + (nextStation.lng - currentStation.lng) * segmentProgress;
+
+    // Calculate realistic speed with variations
+    const baseSpeed = train.avgSpeed;
+    const timeIntoJourney = journeyProgress * Math.PI * 2;
+    const speedVariation = Math.sin(timeIntoJourney) * 8; // ±8 km/h variation
+    let currentSpeed = baseSpeed + speedVariation;
+
+    // Slow down when approaching station
+    const distToNextStation = ((nextStation.km || 0) - totalKmOnJourney);
+    const isApproachingStation = distToNextStation < 3 && distToNextStation >= 0;
+    if (isApproachingStation) {
+      currentSpeed *= 0.6; // 40% speed when approaching
+    }
+
+    currentSpeed = Math.max(0, currentSpeed);
+
+    // Determine status based on speed and distance
+    let status: 'On Time' | 'Delayed' | 'Halted' | 'Approaching Station' | 'At Station' = 'On Time';
+    if (isApproachingStation) {
+      status = 'Approaching Station';
+    } else if (currentSpeed < 1) {
+      status = journeyProgress >= 0.95 ? 'At Station' : 'Halted';
+    }
+
+    // Simulate realistic delays (trains may be 5-15 minutes off schedule)
+    const delayVariation = Math.sin((minutesSinceDeparture / 60) * 0.5) * 7;
+    const estimatedDelay = Math.round(delayVariation);
+
+    const position: TrainPosition = {
+      trainNumber,
+      trainName: train.trainName,
+      currentLat: Math.round(currentLat * 100000) / 100000, // 5 decimal places
+      currentLng: Math.round(currentLng * 100000) / 100000,
+      currentStation: currentStation.name,
+      currentStationCode: currentStation.code,
+      nextStation: nextStation.name,
+      nextStationCode: nextStation.code,
+      currentSpeed: Math.round(currentSpeed * 10) / 10,
+      distanceTraveled: Math.round(totalKmOnJourney),
+      totalDistance: train.distance,
+      percentageComplete: Math.round(journeyProgress * 100),
+      isMoving: currentSpeed > 1,
+      lastUpdated: Date.now(),
+      estimatedDelay: estimatedDelay >= 0 ? estimatedDelay : Math.abs(estimatedDelay),
+      status,
+    };
+
+    return position;
   }
 
   private initializePositions() {
-    Object.entries(REAL_TRAINS_CATALOG).forEach(([trainNumber, train]: [string, any]) => {
-      const firstStation = train.stations?.[0] || { lat: 28.6, lng: 77.2 };
-      const position: TrainPosition = {
-        trainNumber,
-        trainName: train.trainName,
-        currentLat: firstStation.lat,
-        currentLng: firstStation.lng,
-        currentStation: firstStation.name,
-        currentStationCode: firstStation.code,
-        nextStation: train.stations?.[1]?.name || firstStation.name,
-        nextStationCode: train.stations?.[1]?.code || firstStation.code,
-        currentSpeed: 0,
-        distanceTraveled: 0,
-        totalDistance: train.distance,
-        percentageComplete: 0,
-        isMoving: false,
-        lastUpdated: Date.now(),
-        estimatedDelay: 0,
-        status: 'At Station',
-      };
-      this.positions.set(trainNumber, position);
-    });
-  }
-
-  private startSimulation() {
-    setInterval(() => {
-      this.updateAllPositions();
-    }, this.updateInterval);
-  }
-
-  private updateAllPositions() {
-    const elapsedSeconds = (Date.now() - this.simulationStartTime) / 1000;
-    const elapsedMinutes = elapsedSeconds / 60;
-
-    Object.entries(REAL_TRAINS_CATALOG).forEach(([trainNumber, train]: [string, any]) => {
-      const pos = this.positions.get(trainNumber);
-      if (!pos || !train.stations || train.stations.length < 2) return;
-
-      // Simulate realistic train movement
-      const durationMinutes = train.duration;
-      const progressFraction = (elapsedMinutes % durationMinutes) / durationMinutes;
-
-      if (progressFraction > 0.95) {
-        // Train is at destination
-        const lastStation = train.stations[train.stations.length - 1];
-        pos.currentLat = lastStation.lat;
-        pos.currentLng = lastStation.lng;
-        pos.currentStation = lastStation.name;
-        pos.currentStationCode = lastStation.code;
-        pos.distanceTraveled = train.distance;
-        pos.percentageComplete = 100;
-        pos.status = 'At Station';
-        pos.isMoving = false;
-        pos.currentSpeed = 0;
-      } else {
-        // Train is in journey
-        const kmTraveled = train.distance * progressFraction;
-        let currentStationIndex = 0;
-
-        // Find current segment
-        for (let i = 0; i < train.stations.length - 1; i++) {
-          if (kmTraveled >= train.stations[i].km && kmTraveled < train.stations[i + 1].km) {
-            currentStationIndex = i;
-            break;
-          }
-        }
-
-        const currentStn = train.stations[currentStationIndex];
-        const nextStn = train.stations[currentStationIndex + 1];
-
-        // Linear interpolation between stations
-        const segmentDistance = nextStn.km - currentStn.km;
-        const distanceInSegment = kmTraveled - currentStn.km;
-        const segmentProgress = segmentDistance > 0 ? distanceInSegment / segmentDistance : 0;
-
-        // Interpolate coordinates
-        pos.currentLat = currentStn.lat + (nextStn.lat - currentStn.lat) * segmentProgress;
-        pos.currentLng = currentStn.lng + (nextStn.lng - currentStn.lng) * segmentProgress;
-
-        // Simulate speed variation
-        const baseSpeed = train.avgSpeed;
-        const speedVariation = Math.sin(progressFraction * Math.PI * 2) * 10; // ±10 km/h variation
-        pos.currentSpeed = Math.max(0, baseSpeed + speedVariation);
-
-        // Determine if approaching/at station (within 2 km and speed decreasing)
-        const distanceToNextStation = nextStn.km - kmTraveled;
-        if (distanceToNextStation < 2) {
-          pos.status = 'Approaching Station';
-          pos.currentSpeed *= 0.7; // Slow down
-        } else {
-          pos.status = pos.currentSpeed > 5 ? 'On Time' : 'Halted';
-        }
-
-        pos.distanceTraveled = kmTraveled;
-        pos.percentageComplete = Math.round((kmTraveled / train.distance) * 100);
-        pos.currentStation = currentStn.name;
-        pos.currentStationCode = currentStn.code;
-        pos.nextStation = nextStn.name;
-        pos.nextStationCode = nextStn.code;
-        pos.isMoving = pos.currentSpeed > 5;
-
-        // Simulate realistic delays (5-15 minute delays for some trains)
-        const delayVariation = Math.sin(elapsedMinutes / 60) * 10;
-        pos.estimatedDelay = Math.max(0, Math.round(delayVariation));
+    // Pre-calculate all positions on startup
+    const allTrains = getAllTrains();
+    allTrains.forEach((train) => {
+      const trainNumber = train.trainNumber;
+      const pos = this.calculatePositionBySchedule(trainNumber);
+      if (pos) {
+        this.positions.set(trainNumber, pos);
       }
-
-      pos.lastUpdated = Date.now();
-      this.positions.set(trainNumber, pos);
     });
   }
 
+  /**
+   * Get train position - ALWAYS FRESH (live data, not cached)
+   * Recalculates position based on current time
+   */
   getPosition(trainNumber: string): TrainPosition | null {
-    return this.positions.get(trainNumber) || null;
+    // Always recalculate based on current time - ensures LIVE data
+    const freshPosition = this.calculatePositionBySchedule(trainNumber);
+    if (freshPosition) {
+      this.positions.set(trainNumber, freshPosition);
+    }
+    return freshPosition;
   }
 
+  /**
+   * Get all train positions - LIVE
+   */
   getAllPositions(): TrainPosition[] {
-    return Array.from(this.positions.values());
+    const allPositions: TrainPosition[] = [];
+    const allTrains = getAllTrains();
+    allTrains.forEach((train) => {
+      const trainNumber = train.trainNumber;
+      const pos = this.getPosition(trainNumber);
+      if (pos) {
+        allPositions.push(pos);
+      }
+    });
+    return allPositions;
   }
 
+  /**
+   * Get trains in a geographic region - LIVE
+   */
   getPositionsByRegion(lat: number, lng: number, radiusKm: number = 100): TrainPosition[] {
     const EARTH_RADIUS_KM = 6371;
+    const allPositions = this.getAllPositions();
 
-    return Array.from(this.positions.values()).filter((pos) => {
+    return allPositions.filter((pos) => {
       const latDiff = (pos.currentLat - lat) * Math.PI / 180;
       const lngDiff = (pos.currentLng - lng) * Math.PI / 180;
       const a =
@@ -173,17 +203,26 @@ class RealTimePositionService {
     });
   }
 
+  /**
+   * Get nearby trains - LIVE (fresh positions)
+   */
   getNearbyTrains(trainNumber: string, radiusKm: number = 100): TrainPosition[] {
-    const pos = this.positions.get(trainNumber);
+    const pos = this.getPosition(trainNumber);
     if (!pos) return [];
 
     return this.getPositionsByRegion(pos.currentLat, pos.currentLng, radiusKm).filter(
       (t) => t.trainNumber !== trainNumber
     );
   }
+
+  /**
+   * Refresh all positions (useful for forcing updates)
+   */
+  refreshAllPositions(): void {
+    this.initializePositions();
+  }
 }
 
-// Singleton instance
 export const realTimePositionService = new RealTimePositionService();
 
 export default realTimePositionService;

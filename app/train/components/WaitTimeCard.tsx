@@ -13,10 +13,12 @@ interface WaitTimeCardProps {
 export default function WaitTimeCard({ analytics }: WaitTimeCardProps) {
   const [showBreakdown, setShowBreakdown] = useState(false);
 
-  const waitTime = 8; // Mock value
-  const minWait = 5;
-  const maxWait = 12;
-  const confidence = 78;
+  // ✅ LIVE DATA from analytics.waitTimePrediction
+  const prediction = analytics.waitTimePrediction;
+  const waitTime = Math.round(prediction.breakdown.totalWaitTime);
+  const minWait = prediction.range.min;
+  const maxWait = prediction.range.max;
+  const confidence = prediction.breakdown.confidence;
 
   const containerVariants = {
     hidden: { opacity: 0, y: 20 },

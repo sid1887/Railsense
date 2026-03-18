@@ -252,8 +252,9 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
         };
       }) || [],
 
-      // Current station info - find index of current station from position data
+      // Current station info - find station code from position data
       currentStationIndex: trainInfo.stations?.findIndex((s: any) => s.name === positionData.currentStation) || 0,
+      currentStationCode: trainInfo.stations?.find((s: any) => s.name === positionData.currentStation)?.code || trainInfo.sourceCode || '',
     };
 
     console.log(`[DataService] ✓ SUCCESS: Real data loaded for train ${normalized}`);

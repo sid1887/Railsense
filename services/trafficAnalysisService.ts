@@ -12,7 +12,7 @@
  */
 
 import { realTimePositionService } from './realTimePositionService';
-import { REAL_TRAINS_CATALOG } from './realTrainsCatalog';
+import { getAllTrains, getTrainByNumber } from './realTrainsCatalog';
 
 /**
  * Railway section with occupancy info
@@ -275,7 +275,7 @@ class TrafficAnalysisService {
    * Suggest alternate routes based on current congestion
    */
   suggestAlternateRoutes(sourceTrain: string, targetZone: string): string[] {
-    const trainInfo = REAL_TRAINS_CATALOG[sourceTrain as keyof typeof REAL_TRAINS_CATALOG];
+    const trainInfo = getTrainByNumber(sourceTrain);
     if (!trainInfo) return [];
 
     // Get current bottlenecks

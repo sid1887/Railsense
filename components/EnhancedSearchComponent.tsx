@@ -24,6 +24,7 @@ export const EnhancedSearchComponent: React.FC = () => {
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
   const [recentSearches, setRecentSearches] = useState<SearchSuggestion[]>([]);
   const [catalogTrains, setCatalogTrains] = useState<CatalogTrain[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
@@ -72,18 +73,30 @@ export const EnhancedSearchComponent: React.FC = () => {
     setIsLoading(true);
     const timer = setTimeout(() => {
       const query = input.toLowerCase();
+
+      // First, filter from catalog
       const filtered = catalogTrains
         .filter(
           (train) =>
             train.trainNumber.includes(query) ||
             train.trainName.toLowerCase().includes(query)
         )
-        .slice(0, 8)
+        .slice(0, 7)
         .map((train) => ({
           number: train.trainNumber,
           name: train.trainName,
           type: 'suggested' as const,
         }));
+
+      // Add a "Search for" option if input is a number (allow any train number)
+      const digitsOnly = query.replace(/\D/g, '');
+      if (digitsOnly.length > 2 && !filtered.some(s => s.number === digitsOnly)) {
+        filtered.push({
+          number: digitsOnly,
+          name: `Search Train ${digitsOnly}`,
+          type: 'suggested' as const,
+        });
+      }
 
       setSuggestions(filtered);
       setIsLoading(false);
@@ -93,6 +106,8 @@ export const EnhancedSearchComponent: React.FC = () => {
   }, [input, recentSearches, catalogTrains]);
 
   const handleSelectTrain = (trainNumber: string, trainName: string) => {
+    console.log(`[EnhancedSearch] Selected train: ${trainNumber}`);
+
     // Add to recent searches
     const newRecent = [
       { number: trainNumber, name: trainName, type: 'recent' as const },
@@ -101,18 +116,72 @@ export const EnhancedSearchComponent: React.FC = () => {
     setRecentSearches(newRecent);
     localStorage.setItem('recentTrainSearches', JSON.stringify(newRecent));
 
+    // Show loading state
+    setIsNavigating(true);
+    setShowSuggestions(false);
+
     // Navigate to train detail page
+    console.log(`[EnhancedSearch] Navigating to /train/${trainNumber}`);
     router.push(`/train/${trainNumber}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && suggestions.length > 0) {
-      handleSelectTrain(suggestions[0].number, suggestions[0].name);
+    if (e.key === 'Enter') {
+      // Allow pressing Enter with any input, extract digits as train number
+      const digitsOnly = input.replace(/\D/g, '');
+      if (digitsOnly.length > 0) {
+        handleSelectTrain(digitsOnly, `Train ${digitsOnly}`);
+      } else if (suggestions.length > 0) {
+        handleSelectTrain(suggestions[0].number, suggestions[0].name);
+      }
     }
   };
 
   return (
-    <div ref={searchRef} className="relative w-full max-w-2xl mx-auto">
+    <>
+      {/* Full-screen loading overlay during navigation */}
+      {isNavigating && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            backdropFilter: 'blur(4px)',
+          }}
+        >
+          <div style={{ textAlign: 'center' }}>
+            {/* Animated spinner */}
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                border: '3px solid rgba(29, 209, 176, 0.2)',
+                borderTopColor: 'hsl(160, 84%, 44%)',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                margin: '0 auto 16px',
+              }}
+            />
+            <div style={{ color: 'hsl(210, 20%, 92%)', fontSize: '14px', fontWeight: '500' }}>
+              Loading train details...
+            </div>
+            <div style={{ color: 'hsl(215, 12%, 50%)', fontSize: '12px', marginTop: '8px' }}>
+              Fetching real-time data
+            </div>
+          </div>
+          <style jsx>{`
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      )}
+
+      <div ref={searchRef} className="relative w-full max-w-2xl mx-auto">
       {/* Search Input Container with Glassmorphism */}
       <div className="relative">
         <div className="absolute inset-0 bg-gradient-to-r from-accent-blue to-accent-cyan opacity-20 rounded-xl blur-lg group-hover:opacity-40 transition-opacity" />
@@ -225,6 +294,7 @@ export const EnhancedSearchComponent: React.FC = () => {
           animation: shimmer 2s infinite;
         }
       `}</style>
-    </div>
+      </div>
+    </>
   );
 };

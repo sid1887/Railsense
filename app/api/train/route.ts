@@ -25,7 +25,19 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const response = NextResponse.json(trainData);
+      // Transform TrainData to include all frontend-expected fields
+      const enrichedResponse = {
+        ...trainData,
+        // Add route field (alias for scheduledStations) for timeline rendering
+        route: trainData.scheduledStations.map(station => ({
+          station: station.name,
+          code: station.code,
+          arrivalTime: station.estimatedArrival || station.scheduledArrival,
+          departureTime: station.estimatedDeparture || station.scheduledDeparture,
+        })),
+      };
+
+      const response = NextResponse.json(enrichedResponse);
       response.headers.set('Cache-Control', 'public, max-age=60');
       return response;
     }

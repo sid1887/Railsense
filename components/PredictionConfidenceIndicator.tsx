@@ -163,23 +163,46 @@ export default function PredictionConfidenceIndicator({
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.1 }}
-              className="flex items-center justify-between text-xs p-2 rounded bg-dark-card/50 border border-dark-border/50"
+              className="text-xs p-2 rounded bg-dark-card/50 border border-dark-border/50"
             >
-              <span className="text-text-secondary">{factor.name}</span>
-              <span
-                className="font-semibold"
-                style={{
-                  color:
-                    factor.direction === 'negative'
-                      ? '#e63946'
-                      : factor.direction === 'positive'
-                        ? '#1dd1b0'
-                        : '#fca311',
-                }}
-              >
-                {factor.direction === 'negative' ? '+' : factor.direction === 'positive' ? '-' : ''}
-                {Math.abs(factor.impact)}m
-              </span>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-text-secondary">{factor.name}</span>
+                <span
+                  className="font-semibold"
+                  style={{
+                    color:
+                      factor.direction === 'negative'
+                        ? '#e63946'
+                        : factor.direction === 'positive'
+                          ? '#22c55e'
+                          : '#f59e0b',
+                  }}
+                >
+                  {factor.direction === 'negative' ? '+' : factor.direction === 'positive' ? '-' : ''}
+                  {Math.abs(factor.impact)}m
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-1.5 flex-1 rounded bg-dark-card border border-dark-border overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(100, Math.max(8, Math.round((Math.abs(factor.impact) / 20) * 100)))}%` }}
+                    transition={{ duration: 0.6, delay: idx * 0.1 }}
+                    className="h-full"
+                    style={{
+                      backgroundColor:
+                        factor.direction === 'negative'
+                          ? '#e63946'
+                          : factor.direction === 'positive'
+                            ? '#22c55e'
+                            : '#f59e0b',
+                    }}
+                  />
+                </div>
+                <span className="text-[11px] text-text-secondary font-semibold min-w-[34px] text-right">
+                  {Math.min(100, Math.max(8, Math.round((Math.abs(factor.impact) / 20) * 100)))}%
+                </span>
+              </div>
             </motion.div>
           ))}
         </div>

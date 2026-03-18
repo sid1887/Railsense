@@ -5,7 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { REAL_TRAINS_CATALOG, searchTrains, getAllTrains } from '@/services/realTrainsCatalog';
+import { searchTrains, getAllTrainsAsync } from '@/services/realTrainsCatalog';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,10 +16,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const region = searchParams.get('region');
 
-    // Get all trains from real database
-    const allTrains = Array.isArray(REAL_TRAINS_CATALOG)
-      ? REAL_TRAINS_CATALOG
-      : getAllTrains();
+    // Get all trains from real database (async - waits for scraper)
+    const allTrains = await getAllTrainsAsync();
 
     if (!allTrains || allTrains.length === 0) {
       return NextResponse.json({

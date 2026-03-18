@@ -33,6 +33,7 @@ class RailYatriProvider implements TrainProvider {
 
   private gpsCache = new Map<string, { data: RailYatriData; timestamp: number }>();
   private CACHE_TTL_MS = 20000; // 20s cache for GPS data (lower than NTES)
+  private ENABLE_MOCK_MODE = process.env.ENABLE_MOCK_LIVE_DATA === 'true';
 
   /**
    * Fetch live position for a train from RailYatri
@@ -61,10 +62,22 @@ class RailYatriProvider implements TrainProvider {
         console.warn(`[RailYatri] Real API failed: ${apiError instanceof Error ? apiError.message : 'Unknown error'}`);
       }
 
-      // Fall back to mock if API failed
+      // Fall back to mock only in explicit dev mode
       if (!railyatriData) {
-        console.log(`[RailYatri] Falling back to mock data for train ${trainNumber}`);
-        railyatriData = await this._mockFetchFromRailYatri(trainNumber);
+        try {
+          console.log(`[RailYatri] API endpoints unavailable, trying status-page scrape for ${trainNumber}`);
+          railyatriData = await this._fetchFromStatusPages(trainNumber);
+        } catch (scrapeError) {
+          console.warn(`[RailYatri] Status-page scrape failed: ${scrapeError instanceof Error ? scrapeError.message : 'Unknown error'}`);
+        }
+      }
+
+      // Fall back to mock only in explicit dev mode
+      if (!railyatriData) {
+        if (this.ENABLE_MOCK_MODE) {
+          console.log(`[RailYatri] Mock mode enabled, using mock data for train ${trainNumber}`);
+          railyatriData = await this._mockFetchFromRailYatri(trainNumber);
+        }
       }
 
       if (!railyatriData) {
@@ -109,6 +122,9 @@ class RailYatriProvider implements TrainProvider {
           headers: {
             'User-Agent': 'RailSense/1.0 (+http://railsense.local)',
             'Accept': 'application/json',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.railyatri.in/',
+            'Cache-Control': 'no-cache',
           },
         });
 
@@ -136,6 +152,116 @@ class RailYatriProvider implements TrainProvider {
     }
 
     return null;
+  }
+
+  /**
+   * Hard fallback: scrape public live status pages and extract embedded coordinates.
+   */
+  private async _fetchFromStatusPages(trainNumber: string): Promise<RailYatriData | null> {
+    const pages = [
+      `https://www.railyatri.in/live-train-status/${trainNumber}`,
+      `https://www.railyatri.in/trains/${trainNumber}/live-status`,
+      `https://www.whereismytrain.in/train-status/${trainNumber}`,
+    ];
+
+    for (const pageUrl of pages) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch(pageUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Cache-Control': 'no-cache',
+          },
+        });
+
+        clearTimeout(timeout);
+
+        if (!response.ok) {
+          continue;
+        }
+
+        const html = await response.text();
+        const coords = this._extractCoordinatesFromHtml(html);
+        if (!coords) {
+          continue;
+        }
+
+        const speed = this._extractNumericValue(html, [/"speed"\s*:\s*([0-9.]+)/i, /speed[^0-9]*([0-9]{1,3})\s*km\/h/i]) || 0;
+        const delay = this._extractNumericValue(html, [/"delay"\s*:\s*(-?[0-9.]+)/i, /delay[^0-9-]*(-?[0-9]{1,3})\s*min/i]) || 0;
+
+        return {
+          trainNumber,
+          lat: coords.lat,
+          lng: coords.lng,
+          speed,
+          accuracy: 250,
+          boardedPassengers: 0,
+          crowdLevel: 'NORMAL',
+          lastReportAge: 120,
+        };
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.warn(`[RailYatri] Status-page scrape timeout for ${pageUrl}`);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private _extractCoordinatesFromHtml(html: string): { lat: number; lng: number } | null {
+    const patterns: RegExp[] = [
+      /"lat(?:itude)?"\s*:\s*([0-9]{1,2}\.[0-9]+)[^\n\r]{0,120}?"(?:lng|lon|longitude)"\s*:\s*([0-9]{1,3}\.[0-9]+)/i,
+      /"(?:lng|lon|longitude)"\s*:\s*([0-9]{1,3}\.[0-9]+)[^\n\r]{0,120}?"lat(?:itude)?"\s*:\s*([0-9]{1,2}\.[0-9]+)/i,
+      /latitude\s*[=:]\s*([0-9]{1,2}\.[0-9]+)[^\n\r]{0,80}longitude\s*[=:]\s*([0-9]{1,3}\.[0-9]+)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (!match) {
+        continue;
+      }
+
+      const first = Number(match[1]);
+      const second = Number(match[2]);
+
+      let lat = first;
+      let lng = second;
+
+      if (lat > 90 || lng > 180) {
+        lat = second;
+        lng = first;
+      }
+
+      if (this._isValidIndianCoordinate(lat, lng)) {
+        return { lat, lng };
+      }
+    }
+
+    return null;
+  }
+
+  private _extractNumericValue(html: string, patterns: RegExp[]): number | null {
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match?.[1]) {
+        const value = Number(match[1]);
+        if (Number.isFinite(value)) {
+          return value;
+        }
+      }
+    }
+    return null;
+  }
+
+  private _isValidIndianCoordinate(lat: number, lng: number): boolean {
+    return Number.isFinite(lat) && Number.isFinite(lng) && lat >= 6 && lat <= 37 && lng >= 68 && lng <= 98;
   }
 
   /**

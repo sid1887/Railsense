@@ -1,204 +1,271 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { MapPin, Zap, TrendingUp, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { MapPin } from 'lucide-react';
 
-export default function NetworkIntelligencePage() {
-  const [networkData, setNetworkData] = useState<any>(null);
+interface NetworkIntelligenceData {
+  train: {
+    number: string;
+    name: string;
+    source: string;
+    destination: string;
+  };
+  networkPosition: {
+    currentStation: string;
+    route: {
+      totalStations: number;
+      completedStations: number;
+      upcomingStations: number;
+    };
+  };
+  nearbyTrains: {
+    onSameRoute: number;
+    onIntersectingRoutes: number;
+    nearbyInNetwork: number;
+  };
+  congestionAnalysis: {
+    currentSection: string;
+    aheadSection: string;
+    behindSection: string;
+    upstreamCongestion: boolean;
+  };
+  interconnections: {
+    connectingTrains: any[];
+    platforms: any[];
+    stations: string[];
+  };
+  networkMetrics: {
+    loadFactor: string;
+    delayPropagation: string;
+    routeReliability: number;
+  };
+}
+
+function NetworkIntelligenceContent() {
+  const searchParams = useSearchParams();
+  const trainNumber = searchParams.get('trainNumber') || '01211';
+
+  const [data, setData] = useState<NetworkIntelligenceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchNetworkData = async () => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        const response = await fetch('/api/network-intelligence', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'analyze-network',
-            includeHotspots: true,
-            includePriorities: true,
-          }),
-        });
-
+        const response = await fetch(`/api/system/network-intelligence?trainNumber=${trainNumber}`);
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
-
-        const data = await response.json();
-        setNetworkData(data);
-        setError(null);
+        const result = await response.json();
+        setData(result);
       } catch (err: any) {
-        setError(err.message || 'Failed to fetch network intelligence data');
-        setNetworkData(null);
+        setError(err.message || 'Failed to fetch network intelligence');
+        setData(null);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchNetworkData();
-  }, []);
+    fetchData();
+  }, [trainNumber]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-[hsl(230,25%,10%)] to-[hsl(240,20%,14%)] p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
-            <MapPin className="w-10 h-10 text-blue-400" />
-            <h1 className="text-4xl font-bold text-white">Railway Network Intelligence</h1>
+            <MapPin className="w-8 h-8 text-blue-400" />
+            <h1 className="text-4xl font-bold text-white">Network Intelligence</h1>
           </div>
-          <p className="text-blue-200">
-            Real-time analysis of network topology, train flow, hotspot detection, and priority conflicts
-          </p>
+          <p className="text-[hsl(220,20%,70%)]">Train: {trainNumber}</p>
         </div>
 
-        {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg p-6 text-white shadow-lg">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-blue-200 text-sm font-semibold">Network Sections</p>
-                <h3 className="text-4xl font-bold mt-1">6</h3>
-              </div>
-              <MapPin className="w-8 h-8 text-blue-200" />
-            </div>
-            <p className="text-xs text-blue-100">Real Indian Railway routes analyzed</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-cyan-600 to-cyan-800 rounded-lg p-6 text-white shadow-lg">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-cyan-200 text-sm font-semibold">Active Trains</p>
-                <h3 className="text-4xl font-bold mt-1">8</h3>
-              </div>
-              <Zap className="w-8 h-8 text-cyan-200" />
-            </div>
-            <p className="text-xs text-cyan-100">Currently being monitored</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-yellow-600 to-yellow-800 rounded-lg p-6 text-white shadow-lg">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-yellow-200 text-sm font-semibold">Hotspots</p>
-                <h3 className="text-4xl font-bold mt-1">2</h3>
-              </div>
-              <AlertCircle className="w-8 h-8 text-yellow-200" />
-            </div>
-            <p className="text-xs text-yellow-100">High congestion areas detected</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-600 to-green-800 rounded-lg p-6 text-white shadow-lg">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-green-200 text-sm font-semibold">Flow Efficiency</p>
-                <h3 className="text-4xl font-bold mt-1">68%</h3>
-              </div>
-              <TrendingUp className="w-8 h-8 text-green-200" />
-            </div>
-            <p className="text-xs text-green-100">Network health score</p>
-          </div>
-        </div>
-
-        {/* Main Content */}
-        {loading ? (
-          <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700 rounded-lg p-12 text-center">
-            <div className="inline-flex items-center gap-3">
-              <div className="w-8 h-8 border-4 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-              <p className="text-slate-300 font-semibold">Loading network intelligence...</p>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-6">
-            <h3 className="text-red-300 font-bold mb-2">Error Loading Data</h3>
-            <p className="text-red-200 text-sm">{error}</p>
-            <p className="text-slate-400 text-xs mt-3">
-              Make sure the API server is running and accessible at /api/network-intelligence
-            </p>
-          </div>
-        ) : networkData ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Network Overview */}
-            <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700 rounded-lg p-6">
-              <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-blue-400" />
-                Network Overview
-              </h2>
-              <div className="space-y-3">
-                <div className="p-3 bg-slate-700 rounded">
-                  <p className="text-slate-400 text-xs">Total Trains</p>
-                  <p className="text-white font-bold text-lg">{networkData.totalTrains || 'N/A'}</p>
-                </div>
-                <div className="p-3 bg-slate-700 rounded">
-                  <p className="text-slate-400 text-xs">Average Density</p>
-                  <p className="text-white font-bold text-lg">{networkData.avgDensity || 'N/A'} trains/hour</p>
-                </div>
-                <div className="p-3 bg-slate-700 rounded">
-                  <p className="text-slate-400 text-xs">Congestion Score</p>
-                  <p className="text-white font-bold text-lg">{networkData.congestionScore || 'N/A'}/100</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Performance Metrics */}
-            <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700 rounded-lg p-6">
-              <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-green-400" />
-                Performance Metrics
-              </h2>
-              <div className="space-y-3">
-                <div className="p-3 bg-slate-700 rounded">
-                  <p className="text-slate-400 text-xs">Flow Efficiency</p>
-                  <p className="text-white font-bold text-lg">{networkData.flowEfficiency || 'N/A'}%</p>
-                </div>
-                <div className="p-3 bg-slate-700 rounded">
-                  <p className="text-slate-400 text-xs">Network Status</p>
-                  <p className="text-green-400 font-bold text-lg">Operational</p>
-                </div>
-                <div className="p-3 bg-slate-700 rounded">
-                  <p className="text-slate-400 text-xs">Critical Sections</p>
-                  <p className="text-orange-400 font-bold text-lg">{networkData.criticalSections || 0}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Hotspots Detection */}
-            <div className="lg:col-span-2 bg-slate-800/50 backdrop-blur-lg border border-slate-700 rounded-lg p-6">
-              <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-                <AlertCircle className="w-5 h-5 text-yellow-400" />
-                Detected Hotspots
-              </h2>
-              {networkData.hotspots && networkData.hotspots.length > 0 ? (
-                <div className="space-y-2">
-                  {networkData.hotspots.map((hotspot: any, idx: number) => (
-                    <div key={idx} className="p-3 bg-yellow-900/30 border border-yellow-700/50 rounded">
-                      <p className="text-yellow-300 font-semibold text-sm">{hotspot.section}</p>
-                      <p className="text-yellow-200 text-xs mt-1">Congestion Level: {hotspot.congestion || 'High'}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-slate-400 text-sm">No critical hotspots detected at this time</p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="bg-slate-800/50 backdrop-blur-lg border border-slate-700 rounded-lg p-8 text-center">
-            <p className="text-slate-400">No data available</p>
+        {loading && (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
           </div>
         )}
 
-        {/* Info Section */}
-        <div className="mt-8 bg-blue-900/30 border border-blue-700/50 rounded-lg p-6">
-          <h3 className="text-blue-300 font-bold mb-2">About Network Intelligence</h3>
-          <p className="text-blue-200 text-sm">
-            Real-time analysis of Indian Railway network topology to detect congestion, identify hotspots, predict
-            flow patterns, and detect priority train conflicts. Integrates with 6 major railway sections and monitors
-            8+ trains simultaneously for optimal network performance.
-          </p>
-        </div>
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6 mb-6">
+            <p className="text-red-400">Error: {error}</p>
+          </div>
+        )}
+
+        {data && !loading && (
+          <div className="space-y-6">
+            {/* Train Overview */}
+            <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+              <h2 className="text-xl font-bold text-white mb-4">Train Overview</h2>
+              <div className="grid grid-cols-4 gap-4">
+                <div>
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-1">Train Number</p>
+                  <p className="text-2xl font-bold text-blue-400">{data.train.number}</p>
+                </div>
+                <div>
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-1">Route Start</p>
+                  <p className="text-white font-semibold">{data.train.source}</p>
+                </div>
+                <div>
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-1">Route End</p>
+                  <p className="text-white font-semibold">{data.train.destination}</p>
+                </div>
+                <div>
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-1">Train Name</p>
+                  <p className="text-white font-semibold">{data.train.name}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Network Position */}
+            <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+              <h2 className="text-xl font-bold text-white mb-4">Network Position</h2>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Current Station</p>
+                  <p className="text-xl font-bold text-blue-400">{data.networkPosition.currentStation}</p>
+                </div>
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Route Progress</p>
+                  <p className="text-lg font-bold text-white">
+                    {data.networkPosition.route.completedStations} / {data.networkPosition.route.totalStations} stations
+                  </p>
+                  <div className="w-full bg-[hsl(230,20%,30%)] rounded-full h-2 mt-2">
+                    <div
+                      className="h-2 rounded-full bg-blue-500"
+                      style={{
+                        width: `${(data.networkPosition.route.completedStations / data.networkPosition.route.totalStations) * 100}%`
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Upcoming Stations</p>
+                  <p className="text-lg font-bold text-green-400">{data.networkPosition.route.upcomingStations} remaining</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Congestion Analysis */}
+            <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+              <h2 className="text-xl font-bold text-white mb-4">Congestion Analysis</h2>
+              <div className="grid grid-cols-4 gap-4">
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Current Section</p>
+                  <p className={`text-lg font-bold ${
+                    data.congestionAnalysis.currentSection === 'Clear' ? 'text-green-400' :
+                    data.congestionAnalysis.currentSection === 'Moderate' ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    {data.congestionAnalysis.currentSection}
+                  </p>
+                </div>
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Ahead Section</p>
+                  <p className={`text-lg font-bold ${
+                    data.congestionAnalysis.aheadSection === 'Clear' ? 'text-green-400' :
+                    data.congestionAnalysis.aheadSection === 'Moderate' ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    {data.congestionAnalysis.aheadSection}
+                  </p>
+                </div>
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Behind Section</p>
+                  <p className={`text-lg font-bold ${
+                    data.congestionAnalysis.behindSection === 'Clear' ? 'text-green-400' :
+                    data.congestionAnalysis.behindSection === 'Moderate' ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    {data.congestionAnalysis.behindSection}
+                  </p>
+                </div>
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Upstream Risk</p>
+                  <p className={`text-lg font-bold ${
+                    data.congestionAnalysis.upstreamCongestion ? 'text-red-400' : 'text-green-400'
+                  }`}>
+                    {data.congestionAnalysis.upstreamCongestion ? 'High' : 'Low'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Nearby Trains Summary */}
+            <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+              <h2 className="text-xl font-bold text-white mb-4">Nearby Trains</h2>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Same Route</p>
+                  <p className="text-3xl font-bold text-blue-400">{data.nearbyTrains.onSameRoute}</p>
+                  <p className="text-xs text-[hsl(220,15%,55%)] mt-1">trains ahead/behind</p>
+                </div>
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Intersecting Routes</p>
+                  <p className="text-3xl font-bold text-purple-400">{data.nearbyTrains.onIntersectingRoutes}</p>
+                  <p className="text-xs text-[hsl(220,15%,55%)] mt-1">crossing points</p>
+                </div>
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Network Proximity</p>
+                  <p className="text-3xl font-bold text-cyan-400">{data.nearbyTrains.nearbyInNetwork}</p>
+                  <p className="text-xs text-[hsl(220,15%,55%)] mt-1">in vicinity</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Network Metrics */}
+            <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+              <h2 className="text-xl font-bold text-white mb-4">Network Metrics</h2>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Load Factor</p>
+                  <p className="text-2xl font-bold text-white">{data.networkMetrics.loadFactor}</p>
+                  <div className="text-xs text-[hsl(220,15%,55%)] mt-1">overall network</div>
+                </div>
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Delay Propagation</p>
+                  <p className={`text-2xl font-bold ${
+                    data.networkMetrics.delayPropagation === 'Low' ? 'text-green-400' :
+                    data.networkMetrics.delayPropagation === 'Medium' ? 'text-yellow-400' : 'text-red-400'
+                  }`}>
+                    {data.networkMetrics.delayPropagation}
+                  </p>
+                </div>
+                <div className="p-4 bg-[hsl(230,20%,25%)] rounded">
+                  <p className="text-[hsl(220,15%,55%)] text-sm mb-2">Route Reliability</p>
+                  <p className="text-2xl font-bold text-blue-400">{(data.networkMetrics.routeReliability * 100).toFixed(0)}%</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Connected Stations */}
+            {data.interconnections.stations.length > 0 && (
+              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
+                <h2 className="text-xl font-bold text-white mb-4">Upcoming Stations</h2>
+                <div className="space-y-2">
+                  {data.interconnections.stations.map((station, idx) => (
+                    <div key={idx} className="flex items-center gap-3 p-3 bg-[hsl(230,20%,25%)] rounded">
+                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold text-white">
+                        {idx + 1}
+                      </div>
+                      <p className="text-white font-semibold">{station}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+export default function NetworkIntelligencePage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div></div>}>
+      <NetworkIntelligenceContent />
+    </Suspense>
   );
 }

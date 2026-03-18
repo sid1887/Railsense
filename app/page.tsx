@@ -5,6 +5,7 @@ import { ParticleBackground } from '@/components/ParticleBackground';
 import { EnhancedSearchComponent } from '@/components/EnhancedSearchComponent';
 import { LiveStatsTicker } from '@/components/LiveStatsTicker';
 import { Footer } from '@/components/Footer';
+import SubsidiaryServicesDropdown from '@/app/train/components/SubsidiaryServicesDropdown';
 import { motion } from 'framer-motion';
 
 /**
@@ -13,9 +14,22 @@ import { motion } from 'framer-motion';
  */
 export default function Home() {
   const [isVisible, setIsVisible] = useState(false);
+  const [lastSearchedTrain, setLastSearchedTrain] = useState<string | null>(null);
 
   useEffect(() => {
     setIsVisible(true);
+    // Check if there's a recent search in localStorage
+    const saved = localStorage.getItem('recentTrainSearches');
+    if (saved) {
+      try {
+        const recent = JSON.parse(saved);
+        if (recent.length > 0) {
+          setLastSearchedTrain(recent[0].number);
+        }
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
   }, []);
 
   // Text animation variant
@@ -58,6 +72,36 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-dark-bg via-dark-card to-darker-bg flex flex-col">
+      {/* Top Navigation Bar */}
+      {lastSearchedTrain && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '56px',
+          zIndex: 1000,
+          backgroundColor: 'rgba(19, 24, 41, 0.8)',
+          backdropFilter: 'blur(40px)',
+          WebkitBackdropFilter: 'blur(40px)',
+          borderBottom: '1px solid hsl(220, 14%, 18%)',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 24px',
+          gap: '24px',
+        }}>
+          <div style={{ fontSize: '16px', fontWeight: '700', color: 'hsl(262, 83%, 58%)' }}>RailSense</div>
+          <div style={{ flex: 1 }} />
+          <SubsidiaryServicesDropdown trainNumber={lastSearchedTrain} displayLabel="Intelligence" />
+          <div style={{ fontSize: '12px', color: 'hsl(210, 20%, 70%)' }}>
+            Train: <strong>{lastSearchedTrain}</strong>
+          </div>
+        </div>
+      )}
+
+      {/* Spacer for fixed nav if it's shown */}
+      {lastSearchedTrain && <div style={{ height: '56px' }} />}
+
       {/* Animated particle background */}
       <ParticleBackground />
 
