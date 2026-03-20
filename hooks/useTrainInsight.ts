@@ -27,9 +27,9 @@ export function useTrainInsight(
   options: UseTrainInsightOptions = {}
 ) {
   const {
-    refreshInterval = 15000, // 15 seconds default
-    dedupingInterval = 5000,
-    focusThrottleInterval = 5000,
+    refreshInterval = process.env.NODE_ENV === 'development' ? 0 : 60000, // Disabled in dev
+    dedupingInterval = 10000, // Increase deduping to 10 seconds
+    focusThrottleInterval = 10000,
     onError
   } = options;
 

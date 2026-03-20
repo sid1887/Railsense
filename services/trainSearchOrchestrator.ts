@@ -61,6 +61,11 @@ export interface UnifiedTrainResponse {
     lat: number;
     lng: number;
   };
+  // Top-level coordinate properties for API compatibility
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
   route: Array<{
     station: string;
     code?: string;
@@ -209,6 +214,8 @@ export async function searchTrain(
 ): Promise<UnifiedTrainResponse> {
   console.log(`[TrainSearch] Searching for train ${trainNumber}`);
 
+  try {
+
   // Step 0: Check in-memory cache
   if (!forceRefresh) {
     const cached = getFromCache(trainNumber);
@@ -333,15 +340,69 @@ export async function searchTrain(
   let liveData = await getLiveTrainData(trainNumber);
   const liveUnavailable = !liveData;
 
+  console.log(`[TrainSearch] LiveData result:`, {
+    available: !!liveData,
+    lat: liveData?.latitude,
+    lng: liveData?.longitude,
+    source: liveData?.source,
+  });
+
+  // If live data failed OR coordinates are missing, try trainPositionTracker
+  if (!liveData || (liveData.latitude === 0 && liveData.longitude === 0)) {
+    console.log(`[TrainSearch] Live data missing coordinates, trying trainPositionTracker for ${trainNumber}`);
+    try {
+      const trainTracker = require('./trainPositionTracker');
+      if (trainTracker?.getCurrentPosition) {
+        const trackedPos = trainTracker.getCurrentPosition(trainNumber);
+        console.log(`[TrainSearch] trainPositionTracker result:`, {
+          available: !!trackedPos,
+          lat: trackedPos?.lat,
+          lng: trackedPos?.lng,
+          status: trackedPos?.status,
+        });
+        if (trackedPos && typeof trackedPos.lat === 'number' && typeof trackedPos.lng === 'number') {
+          // Use trainPositionTracker position, keep other data from liveData if available
+          if (liveData) {
+            liveData.latitude = trackedPos.lat;
+            liveData.longitude = trackedPos.lng;
+            console.log(`[TrainSearch] ✓ Added coordinates from trainPositionTracker to existing liveData`);
+          } else {
+            liveData = {
+              trainNumber,
+              latitude: trackedPos.lat,
+              longitude: trackedPos.lng,
+              speed: trackedPos.speed || 0,
+              delayMinutes: trackedPos.delay || 0,
+              timestamp: new Date().toISOString(),
+              source: 'estimated',
+              confidence: 0.72,
+            };
+            console.log(`[TrainSearch] ✓ Created liveData from trainPositionTracker`);
+          }
+        }
+      }
+    } catch (trackerError) {
+      console.warn(`[TrainSearch] trainPositionTracker fallback failed:`, trackerError);
+    }
+  }
+
+  console.log(`[TrainSearch] Final liveData before response:`, {
+    available: !!liveData,
+    lat: liveData?.latitude,
+    lng: liveData?.longitude,
+    source: liveData?.source,
+  });
+
   // LAYER 3: Map GPS to route and determine current station
-  let currentStation = dbTrain.route[0].station;
+  let currentStation = dbTrain.route[0]?.station || '';
   let nextStation =
-    dbTrain.route.length > 1 ? dbTrain.route[1].station : dbTrain.route[0].station;
+    dbTrain.route.length > 1 ? (dbTrain.route[1]?.station || '') : (dbTrain.route[0]?.station || '');
   let status: 'approaching' | 'at-station' | 'departed' | 'completed' | 'unknown' =
     'unknown';
   let progress = 0;
 
-  if (liveData) {
+  if (liveData && typeof liveData.latitude === 'number' && typeof liveData.longitude === 'number') {
+    console.log(`[TrainSearch] Attempting to map position with coordinates: lat=${liveData.latitude}, lng=${liveData.longitude}`);
     const positionMapping = await mapTrainPosition(
       trainNumber,
       liveData.latitude,
@@ -349,18 +410,53 @@ export async function searchTrain(
     );
 
     if (positionMapping) {
+      console.log(`[TrainSearch] Position mapping successful:`, { station: positionMapping.nearestStation.name, status: positionMapping.status });
       currentStation = positionMapping.nearestStation.name;
       const currentIdx = dbTrain.route.findIndex(
         (s) => s.station === currentStation
       );
       nextStation =
         currentIdx >= 0 && currentIdx < dbTrain.route.length - 1
-          ? dbTrain.route[currentIdx + 1].station
-          : dbTrain.route[dbTrain.route.length - 1].station;
+          ? dbTrain.route[currentIdx + 1]?.station || ''
+          : dbTrain.route[dbTrain.route.length - 1]?.station || '';
 
       status = positionMapping.status;
       progress = positionMapping.progress;
+    } else {
+      console.warn(`[TrainSearch] Position mapping failed for ${trainNumber}, attempting fallback station matching`);
+      // FALLBACK: Try to match nearest route stop by distance if mapTrainPosition fails
+      let nearestDistance = Infinity;
+      let nearestIdx = 0;
+
+      for (let i = 0; i < dbTrain.route.length; i++) {
+        const stop = dbTrain.route[i] as any;
+        if (typeof stop.latitude === 'number' && typeof stop.longitude === 'number') {
+          // Simple distance calculation (without importing turf)
+          const dx = stop.latitude - liveData.latitude;
+          const dy = stop.longitude - liveData.longitude;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestIdx = i;
+          }
+        }
+      }
+
+      if (nearestIdx > 0 || nearestDistance < Infinity) {
+        currentStation = dbTrain.route[nearestIdx]?.station || '';
+        nextStation = nearestIdx < dbTrain.route.length - 1
+          ? (dbTrain.route[nearestIdx + 1]?.station || '')
+          : (dbTrain.route[dbTrain.route.length - 1]?.station || '');
+        status = 'departed';
+        progress = Math.round((nearestIdx / dbTrain.route.length) * 100);
+        console.log(`[TrainSearch] Fallback station match: ${currentStation} (progress=${progress}%)`);
+      }
     }
+  } else {
+    console.log(`[TrainSearch] No live data available for position mapping, using defaults`);
+    // No live data - just use first station as current
+    status = 'unknown';
   }
 
   // LAYER 3: Calculate ETA
@@ -420,6 +516,11 @@ export async function searchTrain(
     // Use defaults
   }
 
+  // Use liveData coordinates if available and non-zero, otherwise use startLat/Lon
+  const finalLat = (liveData && typeof liveData.latitude === 'number' && liveData.latitude !== 0) ? liveData.latitude : startLat;
+  const finalLng = (liveData && typeof liveData.longitude === 'number' && liveData.longitude !== 0) ? liveData.longitude : startLon;
+  console.log(`[TrainSearch] Final coordinates for response: lat=${finalLat}, lng=${finalLng} (from ${liveData?.source || 'enriched'})`);
+
   const response: UnifiedTrainResponse = {
     trainNumber: dbTrain.trainNumber,
     trainName: dbTrain.trainName,
@@ -434,9 +535,13 @@ export async function searchTrain(
     delayMinutes: liveData?.delayMinutes || 0,
     currentSpeed: liveData?.speed || 0,
     location: {
-      lat: liveData?.latitude || startLat,
-      lng: liveData?.longitude || startLon,
+      lat: finalLat,
+      lng: finalLng,
     },
+    // Top-level for API compatibility
+    latitude: finalLat,
+    longitude: finalLng,
+    // Route information from database
     route: dbTrain.route,
     status,
     progress,
@@ -445,10 +550,21 @@ export async function searchTrain(
     dataSource: 'database',
     liveUnavailable,
     staticDataQuality: dbTrain.route.length > 2 ? 'high' : 'medium',
-    liveDataQuality: liveUnavailable ? 'unavailable' : (liveData.confidence >= 0.75 ? 'high' : 'low'),
+    liveDataQuality: liveUnavailable ? 'unavailable' : (liveData && liveData.confidence >= 0.75 ? 'high' : 'low'),
     predictionConfidence: liveUnavailable ? 0.35 : 0.8,
     mapConfidence: dbTrain.route.length > 2 ? (liveUnavailable ? 0.65 : 0.9) : 0.4,
   };
+
+  console.log(`[TrainSearch] Response location values:`, {
+    'liveData.lat': liveData?.latitude,
+    'liveData.lng': liveData?.longitude,
+    'response.lat': response.latitude,
+    'response.lng': response.longitude,
+    'location.lat': response.location?.lat,
+    'location.lng': response.location?.lng,
+    'startLat': startLat,
+    'startLon': startLon,
+  });
 
   try {
     const nearby = mapViewDataService.getTrainsByRegion(response.location.lat, response.location.lng, 80);
@@ -515,6 +631,34 @@ export async function searchTrain(
 
   console.log(`[TrainSearch] Completed search for ${trainNumber}`);
   return response;
+  } catch (error) {
+    console.error('[TrainSearch] Error in trainSearchOrchestrator:', error);
+    // Return minimal error response
+    return {
+      trainNumber: trainNumber,
+      trainName: 'Unknown',
+      source: 'Not Found',
+      destination: 'Not Found',
+      currentStation: 'Unknown',
+      nextStation: 'Unknown',
+      delayMinutes: 0,
+      currentSpeed: 0,
+      location: {
+        lat: 28.6,  // Default to Delhi
+        lng: 77.2,
+      },
+      route: [],
+      status: 'unknown',
+      progress: 0,
+      lastUpdated: new Date().toISOString(),
+      dataSource: 'none',
+      liveUnavailable: true,
+      staticDataQuality: 'low',
+      liveDataQuality: 'unavailable',
+      predictionConfidence: 0,
+      mapConfidence: 0,
+    };
+  }
 }
 
 /**

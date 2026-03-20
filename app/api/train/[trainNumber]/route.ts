@@ -37,8 +37,16 @@ interface TrainDataResponse {
   currentStationName: string;
   nextStationCode: string;
   nextStationName: string;
+  status?: 'approaching' | 'at-station' | 'departed' | 'completed' | 'unknown';
+  progress?: number;
   lat: number;
   lng: number;
+  latitude?: number;
+  longitude?: number;
+  location?: {
+    lat: number;
+    lng: number;
+  };
   speedKmph: number;
   delayMinutes: number;
   timestamp: string;
@@ -99,13 +107,23 @@ export async function GET(request: NextRequest, { params }: Params): Promise<Nex
         status: stop.status || 'upcoming',
         platformNumber: stop.platformNumber || stop.platform,
         distance: stop.distance || stop.km,
+        latitude: typeof stop.latitude === 'number' ? stop.latitude : undefined,
+        longitude: typeof stop.longitude === 'number' ? stop.longitude : undefined,
       })),
       currentStationCode: resultAny.currentStationCode || resultAny.currentStation || '',
-      currentStationName: resultAny.currentStationName || '',
+      currentStationName: resultAny.currentStation || resultAny.currentStationName || '',
       nextStationCode: resultAny.nextStationCode || '',
       nextStationName: resultAny.nextStationName || '',
+      status: resultAny.status || 'unknown',
+      progress: typeof resultAny.progress === 'number' ? resultAny.progress : 0,
       lat: resultAny.latitude || resultAny.lat || 0,
       lng: resultAny.longitude || resultAny.lng || 0,
+      latitude: resultAny.latitude || resultAny.lat || 0,
+      longitude: resultAny.longitude || resultAny.lng || 0,
+      location: {
+        lat: resultAny.latitude || resultAny.lat || 0,
+        lng: resultAny.longitude || resultAny.lng || 0,
+      },
       speedKmph: resultAny.speed || resultAny.speedKmph || 0,
       delayMinutes: resultAny.delay || resultAny.delayMinutes || 0,
       timestamp: resultAny.timestamp || new Date().toISOString(),

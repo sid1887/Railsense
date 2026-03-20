@@ -143,10 +143,21 @@ export default function MapContent({ analytics }: MapContentProps) {
     const lat = analytics.currentLocation?.latitude;
     const lng = analytics.currentLocation?.longitude;
 
+    console.log(`[MapContent] Computing gpsPosition:`, {
+      lat,
+      lng,
+      isNaN_lat: Number.isNaN(lat),
+      isNaN_lng: Number.isNaN(lng),
+      isFalsy_lat: !lat,
+      isFalsy_lng: !lng,
+    });
+
     if (!lat || !lng || Number.isNaN(lat) || Number.isNaN(lng)) {
+      console.log(`[MapContent] gpsPosition is NULL - one of the values was invalid`);
       return null;
     }
 
+    console.log(`[MapContent] gpsPosition is valid:`, [lat, lng]);
     return [lat, lng];
   }, [analytics.currentLocation]);
 

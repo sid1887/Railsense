@@ -4,7 +4,9 @@
  * Sources: NTES, RailYatri APIs
  */
 
-import { getLiveTrainDataMerged } from './providerAdapter';
+import { getLiveTrainDataMerged, mergeProviderResults } from './providerAdapter';
+import { ntesProvider } from './providers/ntesProvider';
+import { railyatriProvider } from './providers/railyatriProvider';
 import { getEnrichedTrain } from './knowledgeBaseService';
 
 export interface LiveTrainData {
@@ -60,31 +62,30 @@ export interface RailYatriResponse {
 const ENABLE_MOCK_LIVE_DATA = process.env.ENABLE_MOCK_LIVE_DATA === 'true';
 
 /**
- * Fetch live data from NTES (via caching proxy)
+ * Fetch live data from NTES (via direct provider call - no merging loop!)
  */
 async function fetchFromNTES(trainNumber: string): Promise<LiveTrainData | null> {
   try {
-    const merged = await getLiveTrainDataMerged(trainNumber);
+    const result = await ntesProvider.getStatus(trainNumber);
     if (
-      merged &&
-      (merged.source === 'ntes' || merged.source === 'merged') &&
-      typeof merged.delay === 'number' &&
-      typeof merged.lat === 'number' &&
-      typeof merged.lng === 'number' &&
-      Number.isFinite(merged.lat) &&
-      Number.isFinite(merged.lng) &&
-      merged.lat !== 0 &&
-      merged.lng !== 0
+      result &&
+      typeof result.delay === 'number' &&
+      typeof result.lat === 'number' &&
+      typeof result.lng === 'number' &&
+      Number.isFinite(result.lat) &&
+      Number.isFinite(result.lng) &&
+      result.lat !== 0 &&
+      result.lng !== 0
     ) {
       return {
         trainNumber,
-        speed: merged.speed ?? 0,
-        delayMinutes: merged.delay ?? 0,
-        latitude: merged.lat ?? 0,
-        longitude: merged.lng ?? 0,
-        timestamp: new Date(merged.timestamp ?? Date.now()).toISOString(),
+        speed: result.speed ?? 0,
+        delayMinutes: result.delay ?? 0,
+        latitude: result.lat ?? 0,
+        longitude: result.lng ?? 0,
+        timestamp: new Date((result.timestamp ?? Date.now())).toISOString(),
         source: 'ntes',
-        confidence: merged.source === 'merged' ? 0.85 : 0.75,
+        confidence: result.source === 'merged' ? 0.85 : 0.75,
       };
     }
 
@@ -100,30 +101,30 @@ async function fetchFromNTES(trainNumber: string): Promise<LiveTrainData | null>
 }
 
 /**
- * Fetch live data from RailYatri API
+ * Fetch live data from RailYatri API (direct provider - no merging loop!)
  */
 async function fetchFromRailYatri(trainNumber: string): Promise<LiveTrainData | null> {
   try {
-    const merged = await getLiveTrainDataMerged(trainNumber);
+    const result = await railyatriProvider.getStatus(trainNumber);
     if (
-      merged &&
-      typeof merged.lat === 'number' &&
-      typeof merged.lng === 'number' &&
-      Number.isFinite(merged.lat) &&
-      Number.isFinite(merged.lng) &&
-      merged.lat !== 0 &&
-      merged.lng !== 0 &&
-      (merged.source === 'railyatri' || merged.source === 'merged')
+      result &&
+      typeof result.lat === 'number' &&
+      typeof result.lng === 'number' &&
+      Number.isFinite(result.lat) &&
+      Number.isFinite(result.lng) &&
+      result.lat !== 0 &&
+      result.lng !== 0 &&
+      (result.source === 'railyatri' || result.source === 'merged')
     ) {
       return {
         trainNumber,
-        speed: merged.speed ?? 0,
-        delayMinutes: merged.delay ?? 0,
-        latitude: merged.lat,
-        longitude: merged.lng,
-        timestamp: new Date(merged.timestamp ?? Date.now()).toISOString(),
+        speed: result.speed ?? 0,
+        delayMinutes: result.delay ?? 0,
+        latitude: result.lat,
+        longitude: result.lng,
+        timestamp: new Date((result.timestamp ?? Date.now())).toISOString(),
         source: 'railyatri',
-        confidence: merged.source === 'merged' ? 0.9 : 0.8,
+        confidence: result.source === 'merged' ? 0.9 : 0.8,
       };
     }
 
@@ -140,52 +141,39 @@ async function fetchFromRailYatri(trainNumber: string): Promise<LiveTrainData | 
 
 /**
  * Get live train data from multiple sources with fallback
+ * NO REDUNDANT CALLS - each provider only called once!
+ * NO CIRCULAR DEPENDENCIES - doesn't call getTrainData()
  */
 export async function getLiveTrainData(
   trainNumber: string
 ): Promise<LiveTrainData | null> {
-  const merged = await getLiveTrainDataMerged(trainNumber);
-
-  // Try coordinate-capable provider path first
+  // Try RailYatri first (has coordinates)
   const railyatriData = await fetchFromRailYatri(trainNumber);
   if (railyatriData && (railyatriData.source === 'estimated' ? railyatriData.confidence > 0.5 : railyatriData.confidence > 0.7)) {
+    console.log('[LiveTrainData] Returning RailYatri data for', trainNumber);
     return railyatriData;
   }
 
-  // Fallback to merged/NTES if coordinates are present
+  // Fallback to NTES if coordinates present
   const ntesData = await fetchFromNTES(trainNumber);
   if (ntesData && ntesData.confidence > 0.7) {
+    console.log('[LiveTrainData] Returning NTES data for', trainNumber);
     return ntesData;
   }
 
-  // Hard fallback: return schedule-derived geospatial estimate when external providers fail.
-  if (
-    merged &&
-    merged.source === 'schedule' &&
-    typeof merged.lat === 'number' &&
-    typeof merged.lng === 'number' &&
-    Number.isFinite(merged.lat) &&
-    Number.isFinite(merged.lng) &&
-    merged.lat !== 0 &&
-    merged.lng !== 0
-  ) {
-    return {
-      trainNumber,
-      speed: merged.speed ?? 0,
-      delayMinutes: merged.delay ?? 0,
-      latitude: merged.lat,
-      longitude: merged.lng,
-      timestamp: new Date(merged.timestamp ?? Date.now()).toISOString(),
-      source: 'estimated',
-      confidence: 0.55,
-    };
-  }
-
+  // Final fallback: return null instead of trying getTrainData (prevents circular dependency)
+  // The trainDataService will handle static fallback separately
   const kbEstimated = await estimateLiveDataFromKnowledgeBase(trainNumber);
   if (kbEstimated) {
+    console.log('[LiveTrainData] Returning KB estimated data for', trainNumber, {
+      lat: kbEstimated.latitude,
+      lng: kbEstimated.longitude,
+      source: kbEstimated.source,
+    });
     return kbEstimated;
   }
 
+  console.log('[LiveTrainData] No live data available for', trainNumber);
   // Production behavior: explicit unavailable when providers fail
   return null;
 }
@@ -196,33 +184,11 @@ export async function getLiveTrainDataWithDiagnostics(
   const attemptedProviders: Array<'ntes' | 'railyatri'> = ['ntes', 'railyatri'];
   const successfulProviders: Array<'ntes' | 'railyatri'> = [];
 
-  const merged = await getLiveTrainDataMerged(trainNumber);
-  const hasCoords = Boolean(
-    merged &&
-      typeof merged.lat === 'number' &&
-      typeof merged.lng === 'number' &&
-      Number.isFinite(merged.lat) &&
-      Number.isFinite(merged.lng) &&
-      merged.lat !== 0 &&
-      merged.lng !== 0
-  );
-
-  if (merged) {
-    if (merged.source === 'merged') {
-      successfulProviders.push('ntes', 'railyatri');
-    } else if (merged.source === 'ntes') {
-      successfulProviders.push('ntes');
-    } else if (merged.source === 'railyatri') {
-      successfulProviders.push('railyatri');
-    }
-  }
-
+  // Get data once - don't call providers multiple times!
   const data = await getLiveTrainData(trainNumber);
+
   if (data && (data.source === 'ntes' || data.source === 'railyatri')) {
-    const providerSource: 'ntes' | 'railyatri' = data.source;
-    if (!successfulProviders.includes(providerSource)) {
-      successfulProviders.push(providerSource);
-    }
+    successfulProviders.push(data.source as 'ntes' | 'railyatri');
   }
 
   const failedProviders = attemptedProviders.filter(
@@ -236,8 +202,6 @@ export async function getLiveTrainDataWithDiagnostics(
   let reason: LiveDataDiagnostics['reason'] = 'all_live_providers_unavailable';
   if (data) {
     reason = data.source === 'estimated' ? 'fallback_estimated_from_schedule' : 'live_coordinates_available';
-  } else if (merged && !hasCoords) {
-    reason = 'status_only_no_coordinates';
   }
 
   return {
@@ -305,6 +269,45 @@ function parseTimeToMinutes(value?: string): number | null {
 
 async function estimateLiveDataFromKnowledgeBase(trainNumber: string): Promise<LiveTrainData | null> {
   try {
+    // PRIMARY: Use trainPositionTracker for realistic position calculation
+    let trainTracker: any;
+    try {
+      trainTracker = require('./trainPositionTracker');
+    } catch (e) {
+      console.warn('[LiveData] trainPositionTracker not available, using KB estimation');
+    }
+
+    if (trainTracker && trainTracker.getCurrentPosition) {
+      try {
+        const trackedPosition = trainTracker.getCurrentPosition(trainNumber);
+        console.log('[LiveData] trainPositionTracker returned:', {
+          trackedPosition,
+          lat: trackedPosition?.lat,
+          lng: trackedPosition?.lng,
+        });
+        if (trackedPosition && typeof trackedPosition.lat === 'number' && typeof trackedPosition.lng === 'number') {
+          const result: LiveTrainData = {
+            trainNumber,
+            speed: trackedPosition.speed || 32,
+            delayMinutes: trackedPosition.delay || 0,
+            latitude: trackedPosition.lat,
+            longitude: trackedPosition.lng,
+            timestamp: new Date().toISOString(),
+            source: 'estimated',
+            confidence: 0.72, // Higher confidence than static snapping
+          };
+          console.log('[LiveData] ✓ Returning trainPositionTracker estimate for', trainNumber, {
+            lat: result.latitude,
+            lng: result.longitude,
+          });
+          return result;
+        }
+      } catch (trackerError) {
+        console.warn('[LiveData] trainPositionTracker calculation failed:', trackerError);
+      }
+    }
+
+    // SECONDARY FALLBACK: Snap to nearest station by time
     const enriched = await getEnrichedTrain(trainNumber);
     const route = enriched?.enrichedRoute || [];
 
@@ -343,6 +346,7 @@ async function estimateLiveDataFromKnowledgeBase(trainNumber: string): Promise<L
       }
     }
 
+    console.log('[LiveData] Falling back to static station position for', trainNumber);
     return {
       trainNumber,
       speed: 32,

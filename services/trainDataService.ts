@@ -5,7 +5,6 @@
  */
 
 import { TrainData, TrainDataSource } from '@/types/train';
-import { getLiveTrainDataMerged } from './providerAdapter';
 
 // Real data providers
 let trainTracker: any = null;
@@ -162,15 +161,14 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
       }
     }
 
-    // Try to merge live data (NTES + RailYatri)
-    const liveData = await getLiveTrainDataMerged(normalized);
-    const source = liveData?.source || 'schedule';
-    const sources = liveData?.sources || [source];
+    // NOTE: Removed getLiveTrainDataMerged() call to prevent circular dependency with providerAdapter
+    // Live data is fetched separately in trainSearchOrchestrator, not here
+    // This function returns static/schedule-based data only
+    const source: TrainDataSource = 'schedule';
+    const sources: TrainDataSource[] = [source];
 
-    const hasLiveCoords = Boolean(liveData?.lat && liveData?.lng);
-    let coords = hasLiveCoords
-      ? { latitude: liveData!.lat!, longitude: liveData!.lng!, timestamp: liveData!.timestamp || Date.now() }
-      : { latitude: positionData.lat, longitude: positionData.lng, timestamp: Date.now() };
+    // Use schedule-based position (from trainPositionTracker)
+    let coords = { latitude: positionData.lat, longitude: positionData.lng, timestamp: Date.now() };
 
     // Snap coordinates to railway track network for accuracy
     if (mapTrackSnapping && coords.latitude && coords.longitude) {
@@ -196,10 +194,11 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
     const { score: dataQuality, isSynthetic } = computeDataQuality(
       source,
       sources,
-      hasLiveCoords
+      false // hasLiveCoords - we're not using live data in this service
     );
 
-    // Build TrainData using live data when possible
+    // Build TrainData using only schedule-based data
+    // Live data is merged separately in trainSearchOrchestrator
     const trainData: TrainData = {
       // Core fields from real database
       trainNumber: trainInfo.trainNumber,
@@ -210,15 +209,15 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
       source,
       dataQuality,
       isSynthetic,
-      lastUpdated: liveData?.timestamp || Date.now(),
+      lastUpdated: Date.now(),
 
-      // Real-time position (live when available, schedule fallback)
+      // Schedule-based position (snapped to track network)
       currentLocation: coords,
 
-      // Real speed and delay
-      speed: liveData?.speed ?? positionData.speed,
-      delay: liveData?.delay ?? positionData.delay_minutes ?? positionData.delay ?? 0,
-      status: haltInfo.isHalted ? 'Halted' : (liveData?.status || positionData.status || 'Running'),
+      // Schedule-based speed and delay (no live data in this service)
+      speed: positionData.speed,
+      delay: positionData.delay_minutes ?? positionData.delay ?? 0,
+      status: haltInfo.isHalted ? 'Halted' : (positionData.status || 'Running'),
 
       // Scheduled stations from real IR database
       scheduledStations: (trainInfo.stations || []).map((station: any) => {

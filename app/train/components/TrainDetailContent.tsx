@@ -55,6 +55,10 @@ export default function TrainDetailPage({ trainNumber }: TrainDetailPageProps) {
   const [timelineStations, setTimelineStations] = useState<TimelineStation[]>([]);
   const [operationalSignals, setOperationalSignals] = useState<string[]>([]);
   const [operationalContext, setOperationalContext] = useState<OperationalContext | null>(null);
+  const [signalsData, setSignalsData] = useState<any>(null);
+  const [stationOccupancy, setStationOccupancy] = useState<Record<string, any>>({});
+  const [coachesData, setCoachesData] = useState<any>(null);
+  const [predictionsData, setPredictionsData] = useState<any>(null);
 
   // Update selectedTrain when trainNumber prop changes
   useEffect(() => {
@@ -77,6 +81,13 @@ export default function TrainDetailPage({ trainNumber }: TrainDetailPageProps) {
 
         const data = await res.json();
         console.log(`[TrainDetail] Received data:`, data);
+        console.log(`[TrainDetail] Location data:`, {
+          'data.location': data.location,
+          'data.latitude': data.latitude,
+          'data.longitude': data.longitude,
+          'data.lat': data.lat,
+          'data.lng': data.lng,
+        });
 
         // Build timeline stations directly from API route data.
         const routeStops: ApiRouteStop[] = Array.isArray(data.route) ? data.route : [];
@@ -153,7 +164,68 @@ export default function TrainDetailPage({ trainNumber }: TrainDetailPageProps) {
           }
         }
 
-        // Map API status to valid MovementState type ('running' | 'halted' | 'stopped' | 'stalled')
+        // ========== Fetch Detail Features ==========
+
+        // Fetch signals data
+        let signalsData: any = null;
+        if (data.location?.lat && data.location?.lng) {
+          try {
+            const signalsRes = await fetch(
+              `/api/signals?latitude=${data.location.lat}&longitude=${data.location.lng}&radius=50`
+            );
+            if (signalsRes.ok) {
+              signalsData = await signalsRes.json();
+              console.log('[TrainDetail] Signals fetched:', signalsData?.count || 0);
+            }
+          } catch (signalErr) {
+            console.warn('[TrainDetail] Failed to fetch signals:', signalErr);
+          }
+        }
+
+        // Fetch platform occupancy for each route stop
+        const stationOccupancy: Record<string, any> = {};
+        for (const stop of routeStops.slice(0, 10)) {
+          if (stop.code) {
+            try {
+              const occRes = await fetch(
+                `/api/platform-occupancy?stationCode=${stop.code.toUpperCase()}&platformNumber=1`
+              );
+              if (occRes.ok) {
+                const occData = await occRes.json();
+                stationOccupancy[stop.code] = occData;
+              }
+            } catch (occErr) {
+              console.warn(`[TrainDetail] Failed to fetch platform occupancy for ${stop.code}:`, occErr);
+            }
+          }
+        }
+        console.log('[TrainDetail] Platform occupancy loaded for', Object.keys(stationOccupancy).length, 'stations');
+
+        // Fetch coach composition
+        let coachesData: any = null;
+        try {
+          const coachRes = await fetch(`/api/coaches?trainNumber=${selectedTrain}`);
+          if (coachRes.ok) {
+            coachesData = await coachRes.json();
+            console.log('[TrainDetail] Coaches fetched:', coachesData?.coaches?.length || 0);
+          }
+        } catch (coachErr) {
+          console.warn('[TrainDetail] Failed to fetch coaches:', coachErr);
+        }
+
+        // Fetch advanced predictions
+        let predictionsData: any = null;
+        try {
+          const predRes = await fetch(`/api/system/predictions?trainNumber=${selectedTrain}`);
+          if (predRes.ok) {
+            predictionsData = await predRes.json();
+            console.log('[TrainDetail] Predictions fetched');
+          }
+        } catch (predErr) {
+          console.warn('[TrainDetail] Failed to fetch predictions:', predErr);
+        }
+
+        // ========== Map API status to valid MovementState type ('running' | 'halted' | 'stopped' | 'stalled')
         const statusMap: Record<string, 'running' | 'halted' | 'stopped' | 'stalled'> = {
           'at-station': 'stopped',
           'departed': 'running',
@@ -231,9 +303,17 @@ export default function TrainDetailPage({ trainNumber }: TrainDetailPageProps) {
         }
 
         setAnalytics(analyticsData as any);
-  setTimelineStations(mappedTimeline);
+        setTimelineStations(mappedTimeline);
         setOperationalSignals(signals);
         setOperationalContext((data.operationalContext || null) as OperationalContext | null);
+        setSignalsData(signalsData);
+        setStationOccupancy(stationOccupancy);
+        setCoachesData(coachesData);
+        setPredictionsData(predictionsData);
+        console.log(`[TrainDetail] Analytics object created:`, {
+          trainNumber: analyticsData.trainNumber,
+          currentLocation: analyticsData.currentLocation,
+        });
         setError(null);
         console.log(`[TrainDetail] Successfully loaded train data`);
       } catch (err) {
@@ -612,6 +692,279 @@ export default function TrainDetailPage({ trainNumber }: TrainDetailPageProps) {
           >
             <RouteTimeline stations={timelineStations} />
           </motion.div>
+
+          {/* SIGNALS PANEL */}
+          {signalsData && signalsData.signals && signalsData.signals.length > 0 && (
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              style={{ marginBottom: '24px' }}
+            >
+              <div
+                style={{
+                  borderRadius: '12px',
+                  border: '1px solid hsl(220, 14%, 18%)',
+                  background: 'rgba(19, 24, 41, 0.8)',
+                  padding: '20px',
+                }}
+              >
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: 'hsl(0, 0%, 98%)' }}>
+                  🚦 Nearby Railway Signals
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '12px' }}>
+                  {signalsData.signals.map((signal: any, idx: number) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(255,255,255,0.02)',
+                        fontSize: '13px',
+                      }}
+                    >
+                      <div style={{ color: 'hsl(0, 0%, 98%)', fontWeight: 600, marginBottom: '4px' }}>
+                        {signal.id || `Signal ${idx + 1}`}
+                      </div>
+                      <div style={{ color: 'hsl(240, 4%, 66%)', fontSize: '12px', marginBottom: '6px' }}>
+                        Type: {signal.type || 'MAIN'}
+                      </div>
+                      <div style={{
+                        display: 'inline-block',
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        backgroundColor: signal.status === 'GREEN' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(252, 163, 17, 0.2)',
+                        color: signal.status === 'GREEN' ? 'hsl(142, 71%, 45%)' : 'hsl(38, 92%, 55%)',
+                      }}>
+                        {signal.status || 'OK'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* PLATFORM OCCUPANCY PANEL */}
+          {Object.keys(stationOccupancy).length > 0 && (
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              style={{ marginBottom: '24px' }}
+            >
+              <div
+                style={{
+                  borderRadius: '12px',
+                  border: '1px solid hsl(220, 14%, 18%)',
+                  background: 'rgba(19, 24, 41, 0.8)',
+                  padding: '20px',
+                }}
+              >
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: 'hsl(0, 0%, 98%)' }}>
+                  👥 Platform Occupancy
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+                  {Object.entries(stationOccupancy).map(([station, data]: [string, any]) => (
+                    <div
+                      key={station}
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(255,255,255,0.02)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                        <div>
+                          <div style={{ color: 'hsl(0, 0%, 98%)', fontWeight: 600, fontSize: '13px' }}>
+                            {station} - Platform {data.platformNumber || 'N/A'}
+                          </div>
+                          <div style={{ color: 'hsl(240, 4%, 66%)', fontSize: '12px' }}>
+                            {data.passengers || 0} / {data.capacity || 0} passengers
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: '6px' }}>
+                        <div style={{
+                          width: '100%',
+                          height: '6px',
+                          borderRadius: '3px',
+                          background: 'rgba(255,255,255,0.1)',
+                          overflow: 'hidden',
+                        }}>
+                          <div
+                            style={{
+                              width: `${Math.min(100, ((data.passengers || 0) / (data.capacity || 100)) * 100)}%`,
+                              height: '100%',
+                              background: data.occupancyPercentage > 80 ? 'hsl(0, 82%, 56%)' : 'hsl(142, 71%, 45%)',
+                              transition: 'width 0.3s',
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                        <span style={{ color: 'hsl(240, 4%, 66%)' }}>Current</span>
+                        <span style={{ color: 'hsl(0, 0%, 98%)', fontWeight: 600 }}>
+                          {Math.round(data.occupancyPercentage || 0)}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* COACH COMPOSITION PANEL */}
+          {coachesData && coachesData.coaches && coachesData.coaches.length > 0 && (
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              style={{ marginBottom: '24px' }}
+            >
+              <div
+                style={{
+                  borderRadius: '12px',
+                  border: '1px solid hsl(220, 14%, 18%)',
+                  background: 'rgba(19, 24, 41, 0.8)',
+                  padding: '20px',
+                }}
+              >
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: 'hsl(0, 0%, 98%)' }}>
+                  🚂 Coach Composition
+                </h3>
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '13px', color: 'hsl(240, 4%, 66%)', marginBottom: '8px' }}>
+                    Total Capacity: <strong style={{ color: 'hsl(0, 0%, 98%)' }}>{coachesData.totalCapacity || 'N/A'}</strong>
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'hsl(240, 4%, 66%)' }}>
+                    Composition: <code style={{ color: 'hsl(59, 100%, 50%)', fontSize: '11px', background: 'rgba(59, 130, 246, 0.1)', padding: '2px 6px', borderRadius: '3px' }}>
+                      {coachesData.composition || 'N/A'}
+                    </code>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                  {coachesData.coaches.map((coach: any, idx: number) => (
+                    <div
+                      key={idx}
+                      style={{
+                        flex: '0 0 auto',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        background: 'rgba(255,255,255,0.05)',
+                        fontSize: '12px',
+                        minWidth: '60px',
+                        textAlign: 'center',
+                      }}
+                      title={`Coach ${coach.position}: ${coach.type}, Capacity: ${coach.capacity}`}
+                    >
+                      <div style={{ fontWeight: 600, color: 'hsl(59, 100%, 50%)' }}>
+                        {coach.type}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'hsl(240, 4%, 66%)', marginTop: '2px' }}>
+                        Cap: {coach.capacity}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ADVANCED PREDICTIONS PANEL */}
+          {predictionsData && (predictionsData.dwellPrediction || predictionsData.crossingPrediction || predictionsData.platformPrediction) && (
+            <motion.div
+              variants={{
+                hidden: { opacity: 0, y: 20 },
+                visible: { opacity: 1, y: 0 },
+              }}
+              style={{ marginBottom: '24px' }}
+            >
+              <div
+                style={{
+                  borderRadius: '12px',
+                  border: '1px solid hsl(220, 14%, 18%)',
+                  background: 'rgba(19, 24, 41, 0.8)',
+                  padding: '20px',
+                }}
+              >
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 600, color: 'hsl(0, 0%, 98%)' }}>
+                  🧠 Advanced Predictions
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '12px' }}>
+                  {predictionsData.dwellPrediction && (
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(255,255,255,0.02)',
+                      }}
+                    >
+                      <div style={{ color: 'hsl(240, 4%, 66%)', fontSize: '12px', marginBottom: '4px' }}>
+                        Dwell Time
+                      </div>
+                      <div style={{ color: 'hsl(0, 0%, 98%)', fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
+                        {predictionsData.dwellPrediction.estimatedMinutes || 0} min
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'hsl(240, 4%, 66%)' }}>
+                        Range: {predictionsData.dwellPrediction.minMinutes}-{predictionsData.dwellPrediction.maxMinutes} min
+                      </div>
+                    </div>
+                  )}
+                  {predictionsData.crossingPrediction && (
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(255,255,255,0.02)',
+                      }}
+                    >
+                      <div style={{ color: 'hsl(240, 4%, 66%)', fontSize: '12px', marginBottom: '4px' }}>
+                        Crossing Probability
+                      </div>
+                      <div style={{ color: 'hsl(0, 0%, 98%)', fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
+                        {Math.round((predictionsData.crossingPrediction.probability || 0) * 100)}%
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'hsl(240, 4%, 66%)' }}>
+                        Next {predictionsData.crossingPrediction.sections || 1} sections
+                      </div>
+                    </div>
+                  )}
+                  {predictionsData.platformPrediction && (
+                    <div
+                      style={{
+                        padding: '12px 16px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'rgba(255,255,255,0.02)',
+                      }}
+                    >
+                      <div style={{ color: 'hsl(240, 4%, 66%)', fontSize: '12px', marginBottom: '4px' }}>
+                        Platform Occupancy Pred.
+                      </div>
+                      <div style={{ color: 'hsl(0, 0%, 98%)', fontWeight: 600, fontSize: '16px', marginBottom: '4px' }}>
+                        {Math.round((predictionsData.platformPrediction.occupancyPercentage || 0))}%
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'hsl(240, 4%, 66%)' }}>
+                        Confidence: {Math.round((predictionsData.platformPrediction.confidence || 0) * 100)}%
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </motion.div>
 
         {/* SUBSIDIARY SERVICES - Links to detailed analysis pages */}

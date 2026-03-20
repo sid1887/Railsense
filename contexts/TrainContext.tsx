@@ -157,10 +157,10 @@ export function TrainProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Load tracked trains on mount
-  useEffect(() => {
-    refreshTrackedTrains();
-  }, []);
+  // Load tracked trains on mount - DISABLED to prevent automatic polling loops
+  // useEffect(() => {
+  //   refreshTrackedTrains();
+  // }, []);
 
   const value: TrainContextType = {
     selectedTrainNumber,

@@ -23,7 +23,7 @@ interface UseLiveDataReturn {
 
 export function useTrainLiveData(
   trainNumber: string,
-  fallbackPollingMs: number = 5000
+  fallbackPollingMs: number = process.env.NODE_ENV === 'development' ? 0 : 30000
 ): UseLiveDataReturn {
   const [data, setData] = useState<TrainLiveUpdate | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -120,8 +120,8 @@ export function useTrainLiveData(
 
   // Polling fallback
   const startPolling = () => {
-    if (pollingRef.current) {
-      return; // Already polling
+    if (pollingRef.current || fallbackPollingMs <= 0) {
+      return; // Already polling or polling disabled
     }
 
     setIsLive(false);

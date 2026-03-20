@@ -180,7 +180,7 @@ export function useTrainStreamUpdates(
   trainNumber: string,
   options: UseTrainStreamOptions & { pollInterval?: number } = {}
 ) {
-  const { pollInterval = 5000, ...streamOptions } = options;
+  const { pollInterval = process.env.NODE_ENV === 'development' ? 0 : 30000, ...streamOptions } = options;
 
   const [data, setData] = useState<TrainData | null>(null);
   const [status, setStatus] = useState<StreamStatus>('connecting');
@@ -198,8 +198,8 @@ export function useTrainStreamUpdates(
 
   // Polling fallback
   useEffect(() => {
-    if (usingStream || !trainNumber || status === 'connected') {
-      return; // Using stream, skip polling
+    if (usingStream || !trainNumber || status === 'connected' || pollInterval <= 0) {
+      return; // Using stream, skip polling, or polling disabled
     }
 
     const pollTrainData = async () => {
