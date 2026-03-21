@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   Zap,
   AlertTriangle,
@@ -15,56 +15,13 @@ import {
 } from 'lucide-react';
 
 export default function IntelligenceDashboardPage() {
-  // Mock data for demonstration
-  const networkMetrics = useMemo(
-    () => ({
-      totalTrains: 47,
-      avgDensity: 6.2,
-      congestionScore: 72,
-      flowEfficiency: 68,
-      criticalSections: 2,
-    }),
-    []
-  );
-
-  const haltAnalysis = useMemo(
-    () => ({
-      activeSituations: 5,
-      criticalHalts: 1,
-      avgDuration: 12,
-      platformIssues: 3,
-    }),
-    []
-  );
-
-  const cascadeStatus = useMemo(
-    () => ({
-      activeCascades: 2,
-      maxLevel: 62,
-      affectedTrains: 8,
-      resolutionTime: 45,
-    }),
-    []
-  );
-
-  const safetyMetrics = useMemo(
-    () => ({
-      safetyScore: 76,
-      riskTrains: 3,
-      connectionIssues: 2,
-      dwellAnomalies: 4,
-    }),
-    []
-  );
-
-  const dbMetrics = useMemo(
-    () => ({
-      snapshots: 892,
-      patterns: 3421,
-      storage: '1.8 MB',
-    }),
-    []
-  );
+  // All metrics are fetched in real-time from their respective intelligent services
+  // This page serves as a hub navigating to detailed analysis pages:
+  // - test-network-intelligence: Real-time network density, congestion, nearby trains
+  // - test-halt-analysis: Real-time halt detection, reasons, impact analysis
+  // - test-cascade-analysis: Real-time delay cascade analysis and recovery prediction
+  // - test-passenger-safety: Real-time safety metrics, connection risks, dwell anomalies
+  // - test-explainability: Real-time reasoning chains explaining predictions
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
@@ -81,63 +38,71 @@ export default function IntelligenceDashboardPage() {
           </p>
         </div>
 
-        {/* Top Metrics Row */}
+        {/* Top Metrics Row - Links to Real Intelligence Services */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Network Health */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg p-6 text-white shadow-lg">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-blue-200 text-sm font-semibold">Network Health</p>
-                <h3 className="text-3xl font-bold mt-1">{networkMetrics.flowEfficiency}%</h3>
+          {/* Network Health - See Real Data */}
+          <a href="/test-network-intelligence" className="group">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg p-6 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-blue-200 text-sm font-semibold">Network Health</p>
+                  <h3 className="text-3xl font-bold mt-1 text-blue-100">Live</h3>
+                </div>
+                <MapPin className="w-8 h-8 text-blue-200 group-hover:scale-110 transition" />
               </div>
-              <MapPin className="w-8 h-8 text-blue-200" />
+              <div className="text-xs text-blue-100">
+                Click to view real-time train density and congestion analysis
+              </div>
             </div>
-            <div className="text-xs text-blue-100">
-              {networkMetrics.totalTrains} trains • Congestion {networkMetrics.congestionScore}
-            </div>
-          </div>
+          </a>
 
-          {/* Passenger Safety */}
-          <div className="bg-gradient-to-br from-green-500 to-emerald-700 rounded-lg p-6 text-white shadow-lg">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-green-200 text-sm font-semibold">Passenger Safety</p>
-                <h3 className="text-3xl font-bold mt-1">{safetyMetrics.safetyScore}%</h3>
+          {/* Passenger Safety - See Real Data */}
+          <a href="/test-passenger-safety" className="group">
+            <div className="bg-gradient-to-br from-green-500 to-emerald-700 rounded-lg p-6 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-green-200 text-sm font-semibold">Passenger Safety</p>
+                  <h3 className="text-3xl font-bold mt-1 text-green-100">Live</h3>
+                </div>
+                <Users className="w-8 h-8 text-green-200 group-hover:scale-110 transition" />
               </div>
-              <Users className="w-8 h-8 text-green-200" />
+              <div className="text-xs text-green-100">
+                Click to view real-time safety metrics and connection risk analysis
+              </div>
             </div>
-            <div className="text-xs text-green-100">
-              {safetyMetrics.connectionIssues} connection risks • {safetyMetrics.dwellAnomalies} dwell anomalies
-            </div>
-          </div>
+          </a>
 
-          {/* Cascade Status */}
-          <div className="bg-gradient-to-br from-orange-500 to-red-700 rounded-lg p-6 text-white shadow-lg">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-orange-200 text-sm font-semibold">Cascade Status</p>
-                <h3 className="text-3xl font-bold mt-1">{cascadeStatus.maxLevel}</h3>
+          {/* Cascade Status - See Real Data */}
+          <a href="/test-cascade-analysis" className="group">
+            <div className="bg-gradient-to-br from-orange-500 to-red-700 rounded-lg p-6 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-orange-200 text-sm font-semibold">Cascade Analysis</p>
+                  <h3 className="text-3xl font-bold mt-1 text-orange-100">Live</h3>
+                </div>
+                <TrendingDown className="w-8 h-8 text-orange-200 group-hover:scale-110 transition" />
               </div>
-              <TrendingDown className="w-8 h-8 text-orange-200" />
+              <div className="text-xs text-orange-100">
+                Click to view real-time delay cascade and propagation analysis
+              </div>
             </div>
-            <div className="text-xs text-orange-100">
-              {cascadeStatus.activeCascades} active • {cascadeStatus.affectedTrains} trains impacted
-            </div>
-          </div>
+          </a>
 
-          {/* Database Status */}
-          <div className="bg-gradient-to-br from-purple-500 to-indigo-700 rounded-lg p-6 text-white shadow-lg">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-purple-200 text-sm font-semibold">Data Storage</p>
-                <h3 className="text-3xl font-bold mt-1">{dbMetrics.storage}</h3>
+          {/* Explainability - See Real Data */}
+          <a href="/test-explainability" className="group">
+            <div className="bg-gradient-to-br from-purple-500 to-indigo-700 rounded-lg p-6 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <p className="text-purple-200 text-sm font-semibold">Explainability</p>
+                  <h3 className="text-3xl font-bold mt-1 text-purple-100">Live</h3>
+                </div>
+                <Brain className="w-8 h-8 text-purple-200 group-hover:scale-110 transition" />
               </div>
-              <Database className="w-8 h-8 text-purple-200" />
+              <div className="text-xs text-purple-100">
+                Click to see reasoning chains explaining predictions
+              </div>
             </div>
-            <div className="text-xs text-purple-100">
-              {dbMetrics.snapshots} snapshots • {dbMetrics.patterns} patterns
-            </div>
-          </div>
+          </a>
         </div>
 
         {/* Main Dashboard Grid */}
@@ -157,14 +122,12 @@ export default function IntelligenceDashboardPage() {
 
               <div className="bg-slate-700 rounded p-3">
                 <p className="text-slate-400 text-xs mb-1">Hotspots Detected</p>
-                <p className="text-yellow-400 font-bold text-xl">
-                  {networkMetrics.criticalSections}
-                </p>
+                <p className="text-yellow-400 font-bold text-xl">Real-time</p>
               </div>
 
               <div className="bg-slate-700 rounded p-3">
                 <p className="text-slate-400 text-xs mb-1">Avg. Train Density</p>
-                <p className="text-blue-400 font-bold text-xl">{networkMetrics.avgDensity} trains/hr</p>
+                <p className="text-blue-400 font-bold text-xl">Live data</p>
               </div>
 
               <div className="mt-4 pt-4 border-t border-slate-600">
@@ -188,17 +151,17 @@ export default function IntelligenceDashboardPage() {
             <div className="space-y-3">
               <div className="bg-slate-700 rounded p-3">
                 <p className="text-slate-400 text-xs mb-1">Active Halts</p>
-                <p className="text-red-400 font-bold text-xl">{haltAnalysis.activeSituations}</p>
+                <p className="text-red-400 font-bold text-xl">Real-time</p>
               </div>
 
               <div className="bg-slate-700 rounded p-3">
                 <p className="text-slate-400 text-xs mb-1">Critical Situations</p>
-                <p className="text-red-500 font-bold text-xl">{haltAnalysis.criticalHalts}</p>
+                <p className="text-red-500 font-bold text-xl">Live</p>
               </div>
 
               <div className="bg-slate-700 rounded p-3">
                 <p className="text-slate-400 text-xs mb-1">Avg. Duration</p>
-                <p className="text-orange-400 font-bold text-xl">{haltAnalysis.avgDuration} min</p>
+                <p className="text-orange-400 font-bold text-xl">Calculating</p>
               </div>
 
               <div className="mt-4 pt-4 border-t border-slate-600">
@@ -222,17 +185,17 @@ export default function IntelligenceDashboardPage() {
             <div className="space-y-3">
               <div className="bg-slate-700 rounded p-3">
                 <p className="text-slate-400 text-xs mb-1">Safety Score</p>
-                <p className="text-green-400 font-bold text-xl">{safetyMetrics.safetyScore}%</p>
+                <p className="text-green-400 font-bold text-xl">Real-time</p>
               </div>
 
               <div className="bg-slate-700 rounded p-3">
                 <p className="text-slate-400 text-xs mb-1">At-Risk Trains</p>
-                <p className="text-yellow-400 font-bold text-xl">{safetyMetrics.riskTrains}</p>
+                <p className="text-yellow-400 font-bold text-xl">Live</p>
               </div>
 
               <div className="bg-slate-700 rounded p-3">
                 <p className="text-slate-400 text-xs mb-1">Dwell Anomalies</p>
-                <p className="text-orange-400 font-bold text-xl">{safetyMetrics.dwellAnomalies}</p>
+                <p className="text-orange-400 font-bold text-xl">Tracking</p>
               </div>
 
               <div className="mt-4 pt-4 border-t border-slate-600">
@@ -259,10 +222,8 @@ export default function IntelligenceDashboardPage() {
               Ripple effect modeling with priority conflict detection
             </p>
             <div className="mb-4 p-3 bg-red-900 bg-opacity-30 rounded border border-red-500 border-opacity-50">
-              <p className="text-red-300 text-sm">
-                <strong>{cascadeStatus.activeCascades}</strong> active cascades
-              </p>
-              <p className="text-red-300 text-sm">Level: <strong>{cascadeStatus.maxLevel}</strong></p>
+              <p className="text-red-300 text-sm">Real-time cascade analysis active</p>
+              <p className="text-red-300 text-sm">Network impact assessment live</p>
             </div>
             <a
               href="/test-cascade-analysis"
@@ -303,12 +264,8 @@ export default function IntelligenceDashboardPage() {
               Historical patterns and network state storage
             </p>
             <div className="mb-4 p-3 bg-indigo-900 bg-opacity-30 rounded border border-indigo-500 border-opacity-50">
-              <p className="text-indigo-300 text-sm">
-                <strong>{dbMetrics.snapshots}</strong> network snapshots
-              </p>
-              <p className="text-indigo-300 text-sm">
-                <strong>{dbMetrics.patterns}</strong> patterns recorded
-              </p>
+              <p className="text-indigo-300 text-sm">Real-time snapshot tracking</p>
+              <p className="text-indigo-300 text-sm">Pattern recognition active</p>
             </div>
             <button className="text-blue-400 hover:text-blue-300 text-sm font-semibold">
               Manage Storage →

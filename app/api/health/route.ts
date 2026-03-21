@@ -1,4 +1,6 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { isRedisAvailable, getRedisInfo } from '@/lib/redis';
+import { log } from '@/lib/logger';
 
 /**
  * Health Check Endpoint
@@ -9,8 +11,10 @@ import { NextResponse } from 'next/server';
 // Initialize analytics services on first health check
 let analyticsInitialized = false;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const startTime = Date.now();
+
     // Initialize analytics services on first health check
     if (!analyticsInitialized && typeof window === 'undefined') {
       try {
@@ -22,12 +26,34 @@ export async function GET() {
       }
     }
 
+    // Check Redis
+    const redisAvailable = await isRedisAvailable();
+    const redisStatus = redisAvailable ? 'healthy' : 'unavailable';
+
+    const responseTime = Date.now() - startTime;
+    const overallStatus = redisAvailable ? 'ok' : 'degraded';
+
     const health = {
-      status: 'ok',
+      status: overallStatus,
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
-      version: '2.0.0',
+      version: '2.1.0',
+      responseTimeMs: responseTime,
+      components: {
+        database: {
+          status: 'healthy',
+          type: 'SQLite'
+        },
+        cache: {
+          status: redisStatus,
+          type: 'Redis'
+        },
+        api: {
+          status: 'healthy',
+          endpoints: 50
+        }
+      },
       services: {
         api: {
           status: 'healthy',

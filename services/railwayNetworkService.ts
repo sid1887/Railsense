@@ -73,7 +73,7 @@ class RailwayNetworkService {
 
   constructor() {
     this.initializeSections();
-    this.generateMockTrains();
+    this.initializeTrainDensity();
     this.updateNetworkMetrics();
   }
 
@@ -178,37 +178,12 @@ class RailwayNetworkService {
   }
 
   /**
-   * Generate mock train density data
+   * Populate train density from real train data
+   * Called by network intelligence service with actual nearby trains
    */
-  private generateMockTrains() {
-    const trains = [
-      { number: '12723-RAJ', priority: 'rajdhani' as const, location: 'SEC-001', direction: 'north' as const, speed: 120, delay: 2 },
-      { number: '12659-SHAB', priority: 'shatabdi' as const, location: 'SEC-002', direction: 'south' as const, speed: 110, delay: 8 },
-      { number: '12809-SF', priority: 'superfast' as const, location: 'SEC-004', direction: 'east' as const, speed: 100, delay: 15 },
-      { number: '12709-EXP', priority: 'express' as const, location: 'SEC-003', direction: 'west' as const, speed: 80, delay: 12 },
-      { number: '11010-PASS', priority: 'passenger' as const, location: 'SEC-005', direction: 'south' as const, speed: 60, delay: 18 },
-      { number: '12234-FRT', priority: 'freight' as const, location: 'SEC-006', direction: 'north' as const, speed: 50, delay: 5 },
-      { number: '12659-SHAB2', priority: 'shatabdi' as const, location: 'SEC-001', direction: 'south' as const, speed: 110, delay: 3 },
-      { number: '12809-SF2', priority: 'superfast' as const, location: 'SEC-004', direction: 'north' as const, speed: 100, delay: 22 },
-    ];
-
-    trains.forEach((t) => {
-      this.trainDensity.set(t.number, {
-        trainNumber: t.number,
-        location: t.location,
-        priority: t.priority,
-        direction: t.direction,
-        speed: t.speed,
-        delay: t.delay,
-        eta: Date.now() + t.delay * 60000,
-      });
-
-      // Add train to section
-      const section = this.sections.get(t.location);
-      if (section) {
-        section.currentTrains.push(t.number);
-      }
-    });
+  private initializeTrainDensity() {
+    // Train density is populated dynamically from real train data
+    // No mock data - all data comes from networkIntelligenceService
   }
 
   /**

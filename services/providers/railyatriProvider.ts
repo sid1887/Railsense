@@ -72,11 +72,10 @@ class RailYatriProvider implements TrainProvider {
         }
       }
 
-      // Fall back to mock only in explicit dev mode
+      // Fall back to null - no mock data generation
       if (!railyatriData) {
         if (this.ENABLE_MOCK_MODE) {
-          console.log(`[RailYatri] Mock mode enabled, using mock data for train ${trainNumber}`);
-          railyatriData = await this._mockFetchFromRailYatri(trainNumber);
+          console.log(`[RailYatri] Mock mode would be used, but mock data generation is disabled`);
         }
       }
 
@@ -327,69 +326,6 @@ class RailYatriProvider implements TrainProvider {
 
   /**
    * Mock RailYatri GPS fetch
-   * Returns simulated crowdsourced GPS data
-   */
-  private async _mockFetchFromRailYatri(trainNumber: string): Promise<RailYatriData | null> {
-    // Base coordinates for each train (from realTrainDataProvider)
-    const trainCoords: Record<string, { baseLatStart: number; baseLngStart: number; baseLatEnd: number; baseLngEnd: number }> = {
-      '12955': {
-        baseLatStart: 19.0760,
-        baseLngStart: 72.8777,
-        baseLatEnd: 20.1809,
-        baseLngEnd: 73.8567,
-      }, // Mumbai to Pune
-      '12728': {
-        baseLatStart: 19.0760,
-        baseLngStart: 72.8777,
-        baseLatEnd: 19.2183,
-        baseLngEnd: 72.6479,
-      }, // Mumbai to Virar
-      '17015': {
-        baseLatStart: 17.3850,
-        baseLngStart: 78.4867,
-        baseLatEnd: 16.5062,
-        baseLngEnd: 80.6480,
-      }, // Hyderabad to Chennai
-      '12702': {
-        baseLatStart: 19.2183,
-        baseLngStart: 72.6479,
-        baseLatEnd: 19.7515,
-        baseLngEnd: 75.7139,
-      }, // Mumbai to Indore
-      '11039': {
-        baseLatStart: 23.8103,
-        baseLngStart: 86.4304,
-        baseLatEnd: 24.8373,
-        baseLngEnd: 88.3639,
-      }, // Dhanbad to Asansol
-    };
-
-    const coords = trainCoords[trainNumber];
-    if (!coords) return null;
-
-    // PHASE 2 FIX: Use deterministic position at 50% of route (NO randomization)
-    const progress = 0.5; // Fixed middle position instead of randomized
-    const lat = coords.baseLatStart + (coords.baseLatEnd - coords.baseLatStart) * progress;
-    const lng = coords.baseLngStart + (coords.baseLngEnd - coords.baseLngStart) * progress;
-
-    // Deterministic speed based on train type
-    const speed = 55; // Fixed average speed instead of random 0-100
-
-    // Deterministic crowd level
-    const crowdLevel: 'EMPTY' | 'NORMAL' | 'CROWDED' | 'PACKED' = 'NORMAL';
-
-    return {
-      trainNumber,
-      lat: lat, // NO jitter - use exact computed position
-      lng: lng,
-      speed: Math.round(speed * 10) / 10,
-      accuracy: 100, // Fixed 100 meters instead of random 50-150
-      boardedPassengers: 200, // Fixed 200 passengers instead of random
-      crowdLevel,
-      lastReportAge: 30, // Fixed 30 seconds instead of random 0-120
-    };
-  }
-
   /**
    * Clear old cache entries
    */

@@ -90,7 +90,8 @@ async function fetchFromNTES(trainNumber: string): Promise<LiveTrainData | null>
     }
 
     if (ENABLE_MOCK_LIVE_DATA) {
-      return simulateLiveData(trainNumber, 'ntes');
+      // Mark as unavailable instead of simulating fake data
+      return markLiveDataUnavailable(trainNumber);
     }
 
     return null;
@@ -129,7 +130,7 @@ async function fetchFromRailYatri(trainNumber: string): Promise<LiveTrainData | 
     }
 
     if (ENABLE_MOCK_LIVE_DATA) {
-      return simulateLiveData(trainNumber, 'railyatri');
+      return markLiveDataUnavailable(trainNumber);
     }
 
     return null;
@@ -218,37 +219,20 @@ export async function getLiveTrainDataWithDiagnostics(
 }
 
 /**
- * Simulate live data based on train schedule
- * Used for demonstration when actual APIs are not available
+ * SYNTHETIC DATA FALLBACK
+ * When real APIs unavailable, mark data as unavailable rather than simulating
+ * This forces frontend to handle gracefully
  */
-export function simulateLiveData(
-  trainNumber: string,
-  source: 'ntes' | 'railyatri' = 'railyatri'
-): LiveTrainData {
-  // Seed randomness with train number for consistency
-  const seed = parseInt(trainNumber) * 12345;
-  const random = ((Math.sin(seed) + 1) / 2) * 100;
-
-  // Simulate train somewhere on its route (0-100% progress)
-  const progress = (random % 100) / 100;
-
-  // Base coordinates (start at Mumbai)
-  const baseLat = 18.9676;
-  const baseLon = 72.8194;
-
-  // Simulate movement (rough approximation)
-  const deltaLat = progress * 3; // Rough north movement
-  const deltaLon = progress * 6; // Rough east movement
-
+export function markLiveDataUnavailable(trainNumber: string): LiveTrainData {
   return {
     trainNumber,
-    speed: 60 + Math.floor(random % 50), // 60-110 km/h
-    delayMinutes: Math.floor((random % 30) - 15), // -15 to +15 minutes
-    latitude: baseLat + deltaLat,
-    longitude: baseLon + deltaLon,
+    speed: 0,
+    delayMinutes: 0,
+    latitude: 0,
+    longitude: 0,
     timestamp: new Date().toISOString(),
-    source,
-    confidence: 0.6 + (random % 40) / 100, // 0.6-1.0 confidence
+    source: 'estimated',
+    confidence: 0,
   };
 }
 
