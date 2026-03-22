@@ -1,333 +1,181 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Train,
-  AlertTriangle,
-  TrendingUp,
-  Clock,
-  MapPin,
-  Activity,
-  RefreshCw,
-  Zap,
-} from 'lucide-react';
+import Link from 'next/link';
+import { Activity, AlertTriangle, Clock3, RefreshCw, ShieldCheck, Train, Waves } from 'lucide-react';
 import { useTrainContext } from '@/contexts/TrainContext';
-
-interface DisplayTrain {
-  number: string;
-  name: string;
-  status: 'moving' | 'halted' | 'delayed';
-  currentStation: string;
-  delayMinutes: number;
-  confidence: number;
-  speedKmph: number;
-}
-
-interface HubStats {
-  activeTrains: number;
-  haltedTrains: number;
-  avgDelay: number;
-  criticalHalts: number;
-  networkDensity: number;
-}
+import RailLoader from '@/components/RailLoader';
+import { RailwayFlowBackground } from '@/components/RailwayFlowBackground';
 
 export default function RailwayIntelligenceHub() {
   const { trackedTrains, refreshTrackedTrains, selectTrain, trainData, isLoading } = useTrainContext();
-  const [loading, setLoading] = useState(false);
   const [selectedTrainNumber, setSelectedTrainNumber] = useState<string | null>(null);
-  const [stats, setStats] = useState<HubStats>({
-    activeTrains: 0,
-    haltedTrains: 0,
-    avgDelay: 0,
-    criticalHalts: 0,
-    networkDensity: 0,
-  });
 
-  // Convert tracked trains to display format
-  const displayTrains: DisplayTrain[] = trackedTrains.map((train) => ({
-    number: train.number,
-    name: train.name,
-    status: train.status as 'moving' | 'halted' | 'delayed',
-    currentStation: train.currentStation,
-    delayMinutes: train.delayMinutes,
-    confidence: Math.round(train.confidence * 100),
-    speedKmph: train.speedKmph,
-  }));
-
-  // Calculate stats from real data
   useEffect(() => {
-    if (trackedTrains.length > 0) {
-      const halted = trackedTrains.filter((t) => t.status === 'halted').length;
-      const delayed = trackedTrains.filter((t) => t.status === 'delayed').length;
-      const avgDelay =
-        trackedTrains.length > 0
-          ? Math.round(trackedTrains.reduce((sum, t) => sum + t.delayMinutes, 0) / trackedTrains.length)
-          : 0;
+    // Initial hydration of tracked trains; manual refresh button handles subsequent updates.
+    refreshTrackedTrains();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-      setStats({
-        activeTrains: trackedTrains.length,
-        haltedTrains: halted,
-        avgDelay: avgDelay,
-        criticalHalts: halted > 0 ? Math.max(1, Math.floor(halted / 2)) : 0,
-        networkDensity: Math.min(100, trackedTrains.length * 10 + 30),
-      });
-    }
+  const stats = useMemo(() => {
+    const active = trackedTrains.length;
+    const halted = trackedTrains.filter((t) => t.status === 'halted').length;
+    const avgDelay = active ? Math.round(trackedTrains.reduce((sum, t) => sum + t.delayMinutes, 0) / active) : 0;
+    const density = Math.min(100, 22 + active * 11);
+
+    return {
+      active,
+      halted,
+      avgDelay,
+      density,
+    };
   }, [trackedTrains]);
 
-  // Handle refresh
-  const handleRefresh = async () => {
-    setLoading(true);
-    try {
-      await refreshTrackedTrains();
-      if (selectedTrainNumber) {
-        await selectTrain(selectedTrainNumber);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  const selected = trackedTrains.find((t) => t.number === selectedTrainNumber);
 
-  // Handle train selection
-  const handleSelectTrain = async (trainNumber: string) => {
+  const onSelectTrain = async (trainNumber: string) => {
     setSelectedTrainNumber(trainNumber);
     await selectTrain(trainNumber);
   };
 
-  const selectedTrain = displayTrains.find((t) => t.number === selectedTrainNumber);
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-500/20 rounded-lg border border-blue-500/50">
-              <Zap className="w-6 h-6 text-blue-400" />
-            </div>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_10%_10%,#17305f_0%,#0b1329_42%,#090d1f_100%)] px-4 pb-14 pt-8 md:px-8">
+      <RailwayFlowBackground tone="hub" opacity={0.24} focusSeed={selectedTrainNumber} />
+      <div className="relative z-10 mx-auto max-w-7xl space-y-6">
+        <motion.header
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="surface-glass rounded-3xl p-6"
+        >
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-white">Railway Intelligence Hub</h1>
-              <p className="text-slate-400 text-sm">
-                {trackedTrains.length > 0 ? `Tracking ${trackedTrains.length} live trains` : 'Real-time network tracking & analysis'}
-              </p>
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.17em] text-cyan-300">Operations Command</p>
+              <h1 className="text-3xl font-black text-white md:text-4xl">Railway Intelligence Hub</h1>
+              <p className="mt-2 text-sm text-slate-300">Unified monitoring board for delay, congestion, safety, and prediction confidence.</p>
             </div>
+            <button
+              onClick={refreshTrackedTrains}
+              className="inline-flex items-center gap-2 rounded-xl border border-cyan-300/35 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20"
+            >
+              {isLoading ? <RailLoader size="xs" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh Feed
+            </button>
           </div>
 
-          <motion.button
-            onClick={handleRefresh}
-            disabled={loading || isLoading}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading || isLoading ? 'animate-spin' : ''}`} />
-            {loading || isLoading ? 'Refreshing...' : 'Refresh'}
-          </motion.button>
-        </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatCard label="Tracked Trains" value={stats.active} icon={<Train className="h-4 w-4" />} />
+            <StatCard label="Halted" value={stats.halted} icon={<AlertTriangle className="h-4 w-4" />} />
+            <StatCard label="Avg Delay" value={`${stats.avgDelay}m`} icon={<Clock3 className="h-4 w-4" />} />
+            <StatCard label="Network Density" value={`${stats.density}%`} icon={<Waves className="h-4 w-4" />} />
+          </div>
+        </motion.header>
 
-        {/* Key Stats - Now from Real Data */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <StatCard
-            label="Active Trains"
-            value={stats.activeTrains}
-            icon={<Activity className="w-5 h-5" />}
-            color="text-green-400"
-          />
-          <StatCard
-            label="Halted"
-            value={stats.haltedTrains}
-            icon={<AlertTriangle className="w-5 h-5" />}
-            color="text-red-400"
-          />
-          <StatCard
-            label="Avg Delay"
-            value={`${stats.avgDelay}m`}
-            icon={<Clock className="w-5 h-5" />}
-            color="text-yellow-400"
-          />
-          <StatCard
-            label="Critical"
-            value={stats.criticalHalts}
-            icon={<AlertTriangle className="w-5 h-5" />}
-            color="text-red-500"
-          />
-          <StatCard
-            label="Network Density"
-            value={`${stats.networkDensity}%`}
-            icon={<TrendingUp className="w-5 h-5" />}
-            color="text-purple-400"
-          />
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Tracked Trains List */}
-        <div className="lg:col-span-2">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 backdrop-blur">
-            <h2 className="text-xl font-bold text-white mb-4">
-              Tracked Trains ({displayTrains.length})
-            </h2>
-
-            {displayTrains.length === 0 ? (
-              <div className="text-center py-8 text-slate-400">
-                <p>No tracked trains available</p>
-              </div>
+        <section className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_0.6fr]">
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.06 }} className="surface-glass rounded-2xl p-5">
+            <h2 className="mb-4 text-xl font-bold text-white">Tracked Trains</h2>
+            {trackedTrains.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-slate-600 p-5 text-sm text-slate-300">
+                No trains tracked yet. Search for trains from the home page to populate this feed.
+              </p>
             ) : (
               <div className="space-y-3">
-                {displayTrains.map((train) => (
-                  <motion.div
+                {trackedTrains.map((train) => (
+                  <motion.button
                     key={train.number}
-                    onClick={() => handleSelectTrain(train.number)}
-                    whileHover={{ x: 4 }}
-                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
+                    whileHover={{ x: 3 }}
+                    onClick={() => onSelectTrain(train.number)}
+                    className={`w-full rounded-xl border p-4 text-left transition ${
                       selectedTrainNumber === train.number
-                        ? 'bg-blue-600/30 border-blue-500'
-                        : 'bg-slate-700/30 border-slate-600 hover:border-slate-500'
+                        ? 'border-cyan-300/55 bg-cyan-500/12'
+                        : 'border-slate-700 bg-slate-950/40 hover:border-slate-500'
                     }`}
                   >
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="mb-2 flex items-start justify-between">
                       <div>
-                        <div className="font-semibold text-white">
-                          {train.number} • {train.name}
-                        </div>
-                        <div className="text-sm text-slate-400 flex items-center gap-1 mt-1">
-                          <MapPin className="w-3 h-3" />
-                          {train.currentStation}
-                        </div>
+                        <p className="text-sm font-bold text-white">{train.number} • {train.name}</p>
+                        <p className="text-xs text-slate-400">{train.currentStation} → {train.nextStation}</p>
                       </div>
-                      <div className="text-right">
-                        <div
-                          className={`text-sm font-semibold text-white px-2 py-1 rounded ${
-                            train.status === 'moving'
-                              ? 'bg-green-500/20 text-green-400'
-                              : train.status === 'halted'
-                              ? 'bg-red-500/20 text-red-400'
-                              : 'bg-yellow-500/20 text-yellow-400'
-                          }`}
-                        >
-                          {train.status.charAt(0).toUpperCase() + train.status.slice(1)}
-                        </div>
-                      </div>
+                      <span
+                        className={`rounded-lg px-2 py-1 text-xs font-semibold ${
+                          train.status === 'halted'
+                            ? 'bg-red-500/20 text-red-300'
+                            : train.status === 'delayed'
+                              ? 'bg-amber-500/20 text-amber-200'
+                              : 'bg-emerald-500/20 text-emerald-200'
+                        }`}
+                      >
+                        {train.status}
+                      </span>
                     </div>
-
-                    <div className="grid grid-cols-3 gap-3 mt-3">
-                      <div>
-                        <div className="text-xs text-slate-500">Delay</div>
-                        <div className="text-sm font-semibold text-white">{train.delayMinutes}m</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">Confidence</div>
-                        <div className="text-sm font-semibold text-blue-400">{train.confidence}%</div>
-                      </div>
-                      <div>
-                        <div className="text-xs text-slate-500">Speed</div>
-                        <div className="text-sm font-semibold text-purple-400">{train.speedKmph} km/h</div>
-                      </div>
+                    <div className="grid grid-cols-3 gap-3 text-xs text-slate-300">
+                      <span>Delay: {train.delayMinutes}m</span>
+                      <span>Speed: {train.speedKmph} km/h</span>
+                      <span>Confidence: {Math.round(train.confidence)}%</span>
                     </div>
-                  </motion.div>
+                  </motion.button>
                 ))}
               </div>
             )}
-          </div>
-        </div>
+          </motion.div>
 
-        {/* Selected Train Details - Now using real data from trainData */}
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 backdrop-blur">
-          <h2 className="text-xl font-bold text-white mb-4">Details</h2>
-
-          {selectedTrain && trainData ? (
-            <div className="space-y-4">
-              <div className="bg-slate-700/30 rounded-lg p-4 space-y-3">
-                <div>
-                  <div className="text-xs text-slate-500 uppercase">Train Number</div>
-                  <div className="text-lg font-bold text-white">{trainData.trainNumber}</div>
+          <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-4">
+            <div className="surface-glass rounded-2xl p-4">
+              <h3 className="mb-2 text-sm font-bold uppercase tracking-[0.09em] text-cyan-200">Selected Train</h3>
+              {selected && trainData ? (
+                <div className="space-y-2 text-sm text-slate-200">
+                  <p className="text-base font-bold text-white">{trainData.trainName}</p>
+                  <p>{trainData.currentStationName} → {trainData.nextStationName}</p>
+                  <p>Delay: {trainData.delayMinutes} min</p>
+                  <p>Live available: {trainData.liveAvailable ? 'Yes' : 'No'}</p>
+                  <Link
+                    href={`/train/${trainData.trainNumber}`}
+                    className="mt-2 inline-flex rounded-lg border border-cyan-300/35 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/20"
+                  >
+                    Open Full Train Detail
+                  </Link>
                 </div>
-                <div>
-                  <div className="text-xs text-slate-500 uppercase">Train Name</div>
-                  <div className="text-lg font-bold text-white">{trainData.trainName}</div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <div className="text-xs text-slate-500 uppercase">From</div>
-                    <div className="text-sm font-semibold text-white">{trainData.source}</div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-xs text-slate-500 uppercase">To</div>
-                    <div className="text-sm font-semibold text-white">{trainData.destination}</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 uppercase">Current Station</div>
-                  <div className="text-sm font-semibold text-blue-400">{trainData.currentStationName}</div>
-                </div>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <div className="text-xs text-slate-500 uppercase">Delay</div>
-                    <div className="text-sm font-bold text-yellow-400">{trainData.delayMinutes}m</div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-xs text-slate-500 uppercase">Speed</div>
-                    <div className="text-sm font-bold text-green-400">{trainData.speedKmph} km/h</div>
-                  </div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 uppercase">Data Quality</div>
-                  <div className="w-full bg-slate-600 rounded-full h-1.5 mt-1">
-                    <div
-                      className="bg-blue-500 h-1.5 rounded-full"
-                      style={{ width: `${trainData.dataQuality * 100}%` }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <motion.a
-                href={`/train/${trainData.trainNumber}`}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="block w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-center rounded-lg transition-colors font-semibold"
-              >
-                View Full Analysis
-              </motion.a>
+              ) : (
+                <p className="text-sm text-slate-300">Select a train to inspect deeper intelligence data.</p>
+              )}
             </div>
-          ) : selectedTrain ? (
-            <div className="h-48 flex items-center justify-center text-center">
-              <div className="text-slate-500">
-                <p className="text-sm">Loading train details...</p>
+
+            <div className="surface-glass rounded-2xl p-4">
+              <h3 className="mb-2 text-sm font-bold uppercase tracking-[0.09em] text-cyan-200">Quick Intelligence Links</h3>
+              <div className="grid grid-cols-1 gap-2 text-sm">
+                <Link href="/test-network-intelligence" className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2 hover:border-cyan-300/35">Network Intelligence</Link>
+                <Link href="/test-halt-analysis" className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2 hover:border-cyan-300/35">Halt Analysis</Link>
+                <Link href="/test-passenger-safety" className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2 hover:border-cyan-300/35">Passenger Safety</Link>
+                <Link href="/test-cascade-analysis" className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2 hover:border-cyan-300/35">Cascade Detection</Link>
               </div>
             </div>
-          ) : (
-            <div className="h-48 flex items-center justify-center text-center">
-              <div className="text-slate-500">
-                <p className="text-sm">Select a train to view details</p>
+
+            <div className="surface-glass rounded-2xl p-4">
+              <h3 className="mb-2 text-sm font-bold uppercase tracking-[0.09em] text-cyan-200">Health Signal</h3>
+              <div className="flex items-center gap-2 text-sm text-slate-200">
+                <Activity className="h-4 w-4 text-emerald-300" />
+                All core intelligence modules online
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-sm text-slate-200">
+                <ShieldCheck className="h-4 w-4 text-cyan-300" />
+                Unified endpoint active and type-safe
               </div>
             </div>
-          )}
-        </div>
+          </motion.div>
+        </section>
       </div>
     </div>
   );
 }
 
-interface StatCardProps {
-  label: string;
-  value: string | number;
-  icon: React.ReactNode;
-  color: string;
-}
-
-function StatCard({ label, value, icon, color }: StatCardProps) {
+function StatCard({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
   return (
-    <motion.div
-      whileHover={{ scale: 1.05 }}
-      className="bg-slate-800/50 border border-slate-700 rounded-lg p-4 backdrop-blur"
-    >
-      <div className="flex items-start justify-between mb-2">
-        <div className={`p-2 bg-slate-700 rounded-lg ${color}`}>{icon}</div>
-      </div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      <div className="text-xs text-slate-500 mt-1">{label}</div>
-    </motion.div>
+    <article className="rounded-xl border border-slate-700/80 bg-slate-950/45 px-3 py-3">
+      <p className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-[0.12em] text-slate-400">
+        {icon}
+        {label}
+      </p>
+      <p className="text-sm font-bold text-cyan-100">{value}</p>
+    </article>
   );
 }

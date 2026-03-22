@@ -127,7 +127,7 @@ export const ParticleBackground: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 -z-10 opacity-40"
+      className="pointer-events-none fixed inset-0 -z-10 opacity-40"
       style={{ mixBlendMode: 'screen' }}
     />
   );

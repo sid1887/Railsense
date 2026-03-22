@@ -5,7 +5,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import mockTrainData from '@/public/mockTrainData.json';
+import RailLoader from '@/components/RailLoader';
 
 interface SearchSuggestion {
   number: string;
@@ -27,7 +27,6 @@ export const EnhancedSearchComponent: React.FC = () => {
   const [isNavigating, setIsNavigating] = useState(false);
   const [recentSearches, setRecentSearches] = useState<SearchSuggestion[]>([]);
   const [catalogTrains, setCatalogTrains] = useState<CatalogTrain[]>([]);
-  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
 
   // PHASE 1 FIX: Load train catalog from API on mount
@@ -36,19 +35,18 @@ export const EnhancedSearchComponent: React.FC = () => {
       try {
         const response = await fetch('/api/master-train-catalog?limit=200');
         const data = await response.json();
-        if (data.success && data.trains) {
+        const trains = data?.data?.trains || data?.trains;
+        if (data.success && Array.isArray(trains)) {
           setCatalogTrains(
-            data.trains.map((t: any) => ({
+            trains.map((t: any) => ({
               trainNumber: t.trainNumber,
               trainName: t.trainName,
             }))
           );
-          setCatalogLoaded(true);
-          console.log(`[EnhancedSearch] Loaded ${data.trains.length} trains from catalog`);
+          console.log(`[EnhancedSearch] Loaded ${trains.length} trains from catalog`);
         }
       } catch (error) {
         console.error('[EnhancedSearch] Failed to load catalog:', error);
-        setCatalogLoaded(true); // Still mark as loaded to use fallback
       }
     };
     loadCatalog();
@@ -154,18 +152,9 @@ export const EnhancedSearchComponent: React.FC = () => {
           }}
         >
           <div style={{ textAlign: 'center' }}>
-            {/* Animated spinner */}
-            <div
-              style={{
-                width: '48px',
-                height: '48px',
-                border: '3px solid rgba(29, 209, 176, 0.2)',
-                borderTopColor: 'hsl(160, 84%, 44%)',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto 16px',
-              }}
-            />
+            <div style={{ margin: '0 auto 16px', width: 'fit-content' }}>
+              <RailLoader size="lg" />
+            </div>
             <div style={{ color: 'hsl(210, 20%, 92%)', fontSize: '14px', fontWeight: '500' }}>
               Loading train details...
             </div>
@@ -173,11 +162,6 @@ export const EnhancedSearchComponent: React.FC = () => {
               Fetching real-time data
             </div>
           </div>
-          <style jsx>{`
-            @keyframes spin {
-              to { transform: rotate(360deg); }
-            }
-          `}</style>
         </div>
       )}
 
@@ -208,7 +192,7 @@ export const EnhancedSearchComponent: React.FC = () => {
               className="flex-1 bg-transparent text-white placeholder-text-secondary outline-none text-lg"
             />
             {isLoading && (
-              <div className="w-5 h-5 border-2 border-accent-blue border-t-transparent rounded-full animate-spin" />
+              <RailLoader size="sm" />
             )}
           </div>
 

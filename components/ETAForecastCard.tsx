@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, TrendingUp, AlertTriangle, CheckCircle2, Zap } from 'lucide-react';
 import PredictionConfidenceIndicator from './PredictionConfidenceIndicator';
+import RailLoader from '@/components/RailLoader';
 
 interface ETAForecastCardProps {
   trainNumber: string;
@@ -94,7 +95,7 @@ export default function ETAForecastCard({
         className="rounded-lg border border-accent-blue/20 bg-accent-blue/5 p-6"
       >
         <div className="flex items-center gap-3">
-          <div className="w-4 h-4 rounded-full border-2 border-accent-blue border-t-transparent animate-spin" />
+          <RailLoader size="xs" />
           <p className="text-sm text-text-secondary">Loading prediction...</p>
         </div>
       </motion.div>

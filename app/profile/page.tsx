@@ -3,6 +3,10 @@
 import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import RailLoader from '@/components/RailLoader';
+import HarmonicMandala from '@/components/backgrounds/HarmonicMandala';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { ModernButton } from '@/components/ui/ModernButton';
 
 export default function ProfilePage() {
   const { user, isAuthenticated, loading, updateProfile } = useAuth();
@@ -11,6 +15,7 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
@@ -19,6 +24,7 @@ export default function ProfilePage() {
     if (user?.name) {
       setName(user.name);
     }
+    setIsVisible(true);
   }, [isAuthenticated, loading, router, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,7 +47,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <RailLoader size="lg" />
       </div>
     );
   }
@@ -51,80 +57,161 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md mx-auto bg-white rounded-lg shadow p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Edit Profile</h1>
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+      {/* Background Animation */}
+      <HarmonicMandala />
 
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
-            {success}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Header */}
+      <header className="relative z-10 backdrop-blur-xl border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-              Email Address (Read-only)
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={user?.email || ''}
-              disabled
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
-            />
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              RailSense
+            </h1>
+            <p className="text-gray-400 text-sm">Profile Settings</p>
           </div>
-
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-              Full Name
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Your name"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Role
-            </label>
-            <input
-              type="text"
-              value={user?.role || ''}
-              disabled
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500 capitalize"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Saving...' : 'Save Profile'}
-          </button>
-        </form>
-
-        <div className="mt-6 pt-6 border-t">
           <button
             onClick={() => router.back()}
-            className="w-full px-4 py-2 text-indigo-600 hover:text-indigo-700"
+            className="text-gray-400 hover:text-white transition-colors"
           >
             ← Back
           </button>
         </div>
-      </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div
+          className={`transition-all duration-700 ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+          }`}
+        >
+          <div className="mb-8">
+            <h2 className="text-4xl font-bold text-white mb-2">Edit Profile</h2>
+            <p className="text-gray-400">Update your personal information</p>
+          </div>
+
+          {/* Alerts */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 flex items-center gap-2">
+              <span>✓</span>
+              {success}
+            </div>
+          )}
+
+          {/* Profile Form Card */}
+          <GlassCard neon className="p-8 mb-8">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Email Field */}
+              <div>
+                <label htmlFor="email" className="block text-sm font-semibold text-gray-300 mb-2">
+                  Email Address
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={user?.email || ''}
+                  disabled
+                  className="input-modern w-full bg-white/5 cursor-not-allowed opacity-60"
+                />
+                <p className="text-xs text-gray-500 mt-1">Your email address cannot be changed</p>
+              </div>
+
+              {/* Name Field */}
+              <div>
+                <label htmlFor="name" className="block text-sm font-semibold text-gray-300 mb-2">
+                  Full Name
+                </label>
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input-modern w-full"
+                  placeholder="Enter your full name"
+                />
+                <p className="text-xs text-gray-500 mt-1">This is how you'll appear in the system</p>
+              </div>
+
+              {/* Role Field */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-300 mb-2">Role</label>
+                <input
+                  type="text"
+                  value={user?.role || ''}
+                  disabled
+                  className="input-modern w-full bg-white/5 cursor-not-allowed opacity-60"
+                />
+                <p className="text-xs text-gray-500 mt-1">Your account type</p>
+              </div>
+
+              {/* Member Since */}
+              <div className="pt-4 border-t border-white/10">
+                <p className="text-sm text-gray-400">
+                  <span className="font-semibold">Member Since:</span>{' '}
+                  {user?.createdAt
+                    ? new Date(user.createdAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })
+                    : 'N/A'}
+                </p>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-4 pt-6">
+                <ModernButton
+                  variant="glow"
+                  size="lg"
+                  className="flex-1"
+                  disabled={saving}
+                  type="submit"
+                >
+                  {saving ? 'Saving...' : '✓ Save Profile'}
+                </ModernButton>
+                <ModernButton
+                  variant="outline"
+                  size="lg"
+                  className="flex-1"
+                  onClick={() => router.back()}
+                  disabled={saving}
+                >
+                  Cancel
+                </ModernButton>
+              </div>
+            </form>
+          </GlassCard>
+
+          {/* Account Info Card */}
+          <GlassCard className="p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">Account Information</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Account Status</span>
+                <span className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-green-400">Active</span>
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Email Verified</span>
+                <span className="text-purple-400">✓ Verified</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-400">Two-Factor Auth</span>
+                <span className="text-gray-400">Not enabled</span>
+              </div>
+            </div>
+          </GlassCard>
+        </div>
+      </main>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Brain, TrendingUp, Zap, BarChart3, RefreshCw } from 'lucide-react';
+import RailLoader from '@/components/RailLoader';
 
 interface MLPredictionResponse {
   train: string;
@@ -123,7 +124,7 @@ export default function MLPredictionTestPage() {
             animate={{ opacity: 1 }}
             className="flex items-center justify-center py-12 gap-3 text-text-secondary"
           >
-            <RefreshCw size={20} className="animate-spin" />
+            <RailLoader size="sm" />
             Loading ML predictions...
           </motion.div>
         )}

@@ -61,14 +61,14 @@ export const Navbar: React.FC = () => {
   }, []);
 
   const intelligenceFeatures = [
-    { label: '📊 Intelligence Hub', href: '/intelligence-hub', desc: 'Central tracking & network overview' },
-    { label: '📈 Data Quality', href: '/data-quality', desc: 'Data sources & transparency' },
-    { label: '🧠 Intelligence Dashboard', href: '/intelligence', desc: 'Unified view of all AI features' },
-    { label: '🌐 Network Intelligence', href: '/test-network-intelligence', desc: 'Railway network analysis' },
-    { label: '⏱️ Halt Analysis', href: '/test-halt-analysis', desc: 'Advanced halt detection' },
-    { label: '💡 Explainability', href: '/test-explainability', desc: 'AI transparency & reasoning' },
-    { label: '👥 Passenger Safety', href: '/test-passenger-safety', desc: 'Safety metrics & analysis' },
-    { label: '📉 Cascade Detection', href: '/test-cascade-analysis', desc: 'Delay propagation analysis' },
+    { label: 'Intelligence Hub', href: '/intelligence-hub', desc: 'Central tracking and network overview' },
+    { label: 'Data Quality', href: '/data-quality', desc: 'Source health and transparency' },
+    { label: 'Intelligence Dashboard', href: '/intelligence', desc: 'Unified view of AI modules' },
+    { label: 'Network Intelligence', href: '/test-network-intelligence', desc: 'Railway network analysis' },
+    { label: 'Halt Analysis', href: '/test-halt-analysis', desc: 'Advanced halt detection' },
+    { label: 'Explainability', href: '/test-explainability', desc: 'Reasoning and confidence factors' },
+    { label: 'Passenger Safety', href: '/test-passenger-safety', desc: 'Safety metrics and risk analysis' },
+    { label: 'Cascade Detection', href: '/test-cascade-analysis', desc: 'Delay propagation analysis' },
   ];
 
   return (
@@ -279,12 +279,6 @@ export const Navbar: React.FC = () => {
               )
             )}
 
-            {/* Theme Toggle Button */}
-            <button className="p-2 rounded-lg hover:bg-dark-card transition-colors">
-              <svg className="w-5 h-5 text-text-secondary hover:text-accent-blue transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m6.364 1.636l-.707-.707M21 12h-1m1.364 6.364l-.707-.707M12 21v1m-6.364-1.636l.707.707M3 12h1M4.636 4.636l.707.707" />
-              </svg>
-            </button>
           </div>
         </div>
       </div>

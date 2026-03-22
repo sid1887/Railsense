@@ -5,6 +5,7 @@
  */
 
 import { TrainData, TrainDataSource } from '@/types/train';
+import * as trainKB from '@/services/knowledgeBaseService';
 
 // Real data providers
 let trainTracker: any = null;
@@ -72,9 +73,63 @@ function setCachedData(trainNumber: string, data: TrainData | null) {
 }
 
 /**
- * Simulates real train movement by slightly modifying mock data
- * Increments location and updates delay for realistic demo
+ * Fallback: Convert knowledge base train data to TrainData format
+ * Used when train not found in realTrainsDatabase
  */
+async function buildTrainDataFromKnowledgeBase(trainNumber: string): Promise<TrainData | null> {
+  try {
+    console.log(`[DataService] Attempting knowledge base fallback for ${trainNumber}...`);
+
+    const kbTrain = await trainKB.searchTrainByNumber(trainNumber);
+    if (!kbTrain) {
+      console.log(`[DataService] Train ${trainNumber} not found in knowledge base either`);
+      return null;
+    }
+
+    console.log(`[DataService] ✓ Found ${trainNumber} in knowledge base: ${kbTrain.trainName}`);
+
+    // Convert KB train stops to Station format
+    const scheduledStations = (kbTrain.stops || []).map((stop) => ({
+      name: stop.stationName,
+      code: stop.stationName.split('-')[1]?.trim() || stop.stationName,
+      scheduledArrival: stop.arrives,
+      scheduledDeparture: stop.departs,
+      latitude: 0, // KB doesn't have coords, will be estimated
+      longitude: 0,
+      isHalted: false,
+    }));
+
+    // Create synthetic position data from schedule
+    const firstStop = scheduledStations[0];
+    const syntheticData: TrainData = {
+      trainNumber: kbTrain.trainNumber,
+      trainName: kbTrain.trainName,
+      source: 'schedule',
+      destination: kbTrain.destination,
+      dataQuality: 40, // Medium-low quality (no live data, KB only)
+      isSynthetic: true,
+      currentLocation: {
+        latitude: 0, // Placeholder
+        longitude: 0,
+        timestamp: Date.now(),
+      },
+      currentStationIndex: 0,
+      currentStationCode: firstStop?.code || 'UNKNOWN',
+      scheduledStations: scheduledStations,
+      delay: 0,
+      speed: 0,
+      status: 'Scheduled',
+      lastUpdated: Date.now(),
+    };
+
+    setCachedData(trainNumber, syntheticData);
+    return syntheticData;
+  } catch (error) {
+    console.error(`[DataService] Knowledge base fallback failed for ${trainNumber}:`, error);
+    return null;
+  }
+}
+
 /**
  * Main function to get train data
  * REAL DATA ONLY - uses verified Indian Railways train schedules
@@ -109,11 +164,19 @@ export async function getTrainData(trainNumber: string): Promise<TrainData | nul
     console.log(`[DataService] Querying real train database...`);
 
     // Get current position from real schedule (fallback for coords)
-    const positionData = trainTracker.getCurrentPosition(normalized);
+    let positionData = trainTracker.getCurrentPosition(normalized);
     if (!positionData) {
       console.log(`[DataService] ✗ Train ${normalized} NOT found in real database`);
       const available = trainTracker.getAllTrainNumbers?.() || [];
-      console.log(`[DataService] Trains available: ${available.join(', ')}`);
+      console.log(`[DataService] Available in realTrainsDatabase: ${available.join(', ')}`);
+
+      // FALLBACK: Check knowledge base for this train
+      console.log(`[DataService] Falling back to knowledge base...`);
+      const kbData = await buildTrainDataFromKnowledgeBase(normalized);
+      if (kbData) {
+        return kbData;
+      }
+
       setCachedData(normalized, null);
       return null;
     }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Search, Sliders } from 'lucide-react';
 import { parseTrainNumber } from '@/lib/utils';
+import RailLoader from '@/components/RailLoader';
 
 /**
  * TrainSearch Component
@@ -71,7 +72,7 @@ export default function TrainSearch() {
           >
             {isLoading ? (
               <span className="flex items-center gap-2">
-                <span className="inline-block w-4 h-4 border-2 border-dark-bg border-t-accent-blue rounded-full animate-spin" />
+                <RailLoader size="xs" />
                 Searching...
               </span>
             ) : (

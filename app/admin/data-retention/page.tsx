@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Trash2, Calendar, BarChart3, RefreshCw, AlertTriangle, Check } from 'lucide-react';
+import RailLoader from '@/components/RailLoader';
 
 interface RetentionPolicy {
   dataType: string;
@@ -112,7 +113,7 @@ export default function DataRetentionPage() {
 
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-3 text-text-secondary">
-              <RefreshCw size={20} className="animate-spin" />
+              <RailLoader size="sm" />
               Loading policies...
             </div>
           ) : (

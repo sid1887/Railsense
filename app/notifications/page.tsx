@@ -4,6 +4,10 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import RailLoader from '@/components/RailLoader';
+import HarmonicMandala from '@/components/backgrounds/HarmonicMandala';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { ModernButton } from '@/components/ui/ModernButton';
 
 interface Notification {
   id: number;
@@ -115,7 +119,7 @@ export default function NotificationsPage() {
   if (loading || fetching) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <RailLoader size="lg" />
       </div>
     );
   }
@@ -124,92 +128,159 @@ export default function NotificationsPage() {
     return null;
   }
 
+  const notificationIcons: Record<string, string> = {
+    delay: '⏱️',
+    alert: '🚨',
+    update: '📢',
+    arrival: '🎉',
+    departure: '🚂',
+    default: '🔔',
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+      {/* Background */}
+      <HarmonicMandala />
+
+      {/* Header */}
+      <header className="relative z-10 backdrop-blur-xl border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">🔔 Notifications</h1>
-            {unreadCount > 0 && (
-              <p className="text-sm text-gray-600 mt-1">{unreadCount} unread</p>
-            )}
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              RailSense
+            </h1>
+            <p className="text-gray-400 text-sm">Notifications</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4">
             {unreadCount > 0 && (
-              <button
-                onClick={handleMarkAllAsRead}
-                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-              >
-                Mark All as Read
-              </button>
+              <span className="flex items-center gap-1 text-yellow-400">
+                <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" />
+                {unreadCount} unread
+              </span>
             )}
-            <Link href="/dashboard" className="text-indigo-600 hover:text-indigo-700">
+            <button onClick={() => router.back()} className="text-gray-400 hover:text-white transition-colors">
               ← Back
-            </Link>
+            </button>
           </div>
         </div>
+      </header>
 
+      {/* Main Content */}
+      <main className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
             {error}
           </div>
         )}
 
+        {/* Toolbar */}
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-4xl font-bold text-white mb-2">🔔 Notifications</h2>
+            <p className="text-gray-400">Stay updated with your train alerts and events</p>
+          </div>
+          {unreadCount > 0 && (
+            <ModernButton
+              variant="glow"
+              size="md"
+              onClick={handleMarkAllAsRead}
+            >
+              ✓ Mark All Read
+            </ModernButton>
+          )}
+        </div>
+
+        {/* Notifications List */}
         {notifications.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-12 text-center">
-            <p className="text-gray-600 mb-4">No notifications yet</p>
+          <div className="animate-fadeInUp">
+            <GlassCard className="p-12 text-center">
+              <div className="text-5xl mb-4">✨</div>
+              <h3 className="text-2xl font-bold text-white mb-2">All Caught Up!</h3>
+              <p className="text-gray-400 mb-6">You don't have any notifications yet</p>
+              <Link href="/search">
+                <ModernButton variant="primary" size="lg">
+                  🚆 Search Trains
+                </ModernButton>
+              </Link>
+            </GlassCard>
           </div>
         ) : (
           <div className="space-y-3">
-            {notifications.map((notif) => (
+            {notifications.map((notif, idx) => (
               <div
                 key={notif.id}
-                className={`rounded-lg shadow p-4 flex justify-between items-start ${
-                  notif.is_read ? 'bg-white' : 'bg-blue-50 border-l-4 border-blue-400'
-                }`}
+                className={`animate-fadeInUp`}
+                style={{ animationDelay: `${idx * 100}ms` }}
               >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-gray-900">{notif.title}</h3>
-                    <span className="text-xs px-2 py-1 bg-gray-200 rounded capitalize">
-                      {notif.notification_type}
-                    </span>
+                <GlassCard
+                  hover
+                  neon={!notif.is_read}
+                  className={`p-6 ${!notif.is_read ? 'border-yellow-500/50' : ''}`}
+                >
+                  <div className="flex gap-4">
+                    <div className="text-3xl flex-shrink-0">
+                      {notificationIcons[notif.notification_type] || notificationIcons.default}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-lg font-semibold text-white">{notif.title}</h3>
+                        <span className={`text-xs px-3 py-1 rounded-full font-medium ${
+                          !notif.is_read
+                            ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                            : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                        }`}>
+                          {notif.is_read ? 'Read' : 'Unread'}
+                        </span>
+                        <span className="text-xs px-3 py-1 rounded-full font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 capitalize">
+                          {notif.notification_type}
+                        </span>
+                      </div>
+                      <p className="text-gray-300 mb-3">{notif.message}</p>
+                      {notif.train_number && (
+                        <Link
+                          href={`/train/${notif.train_number}`}
+                          className="inline-block text-sm text-indigo-400 hover:text-indigo-300 transition-colors mb-2"
+                        >
+                          → View Train {notif.train_number}
+                        </Link>
+                      )}
+                      <p className="text-xs text-gray-500">
+                        {new Date(notif.created_at).toLocaleString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      {!notif.is_read && (
+                        <ModernButton
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleMarkAsRead(notif.id)}
+                          className="border-indigo-500/50 text-indigo-400"
+                        >
+                          Read
+                        </ModernButton>
+                      )}
+                      <ModernButton
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDelete(notif.id)}
+                        className="border-red-500/50 text-red-400"
+                      >
+                        Delete
+                      </ModernButton>
+                    </div>
                   </div>
-                  <p className="text-gray-700 mt-1">{notif.message}</p>
-                  {notif.train_number && (
-                    <Link
-                      href={`/train/${notif.train_number}`}
-                      className="text-sm text-indigo-600 hover:text-indigo-700 mt-2"
-                    >
-                      View Train {notif.train_number} →
-                    </Link>
-                  )}
-                  <p className="text-xs text-gray-500 mt-2">
-                    {new Date(notif.created_at).toLocaleString()}
-                  </p>
-                </div>
-                <div className="flex gap-2 ml-4">
-                  {!notif.is_read && (
-                    <button
-                      onClick={() => handleMarkAsRead(notif.id)}
-                      className="px-3 py-1 text-sm bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200"
-                    >
-                      Mark Read
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleDelete(notif.id)}
-                    className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded"
-                  >
-                    Delete
-                  </button>
-                </div>
+                </GlassCard>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

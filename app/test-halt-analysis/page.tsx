@@ -1,34 +1,23 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Clock, AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Clock3, Siren } from 'lucide-react';
 import SubsidiaryServiceNavBar from '@/app/components/SubsidiaryServiceNavBar';
+import RailLoader from '@/components/RailLoader';
 
 interface HaltAnalysisData {
   trainNumber: string;
   trainName: string;
-  currentStatus: {
-    isHalted: boolean;
-    haltReason?: string;
-    haltDuration?: number;
-  };
-  haltAnalysis: {
-    probableCauses: Array<{ cause: string; probability: number }>;
-    signalStrength: number;
-  };
-  impactAnalysis: {
-    delayAccumulation: number;
-    cascadeRisk: string;
-    affectedStations: number;
-  };
+  currentStatus: { isHalted: boolean; haltReason?: string; haltDuration?: number };
+  haltAnalysis: { probableCauses: Array<{ cause: string; probability: number }>; signalStrength: number };
+  impactAnalysis: { delayAccumulation: number; cascadeRisk: string; affectedStations: number };
   recommendations: string[];
 }
 
 function HaltAnalysisContent() {
   const searchParams = useSearchParams();
   const trainNumber = searchParams.get('trainNumber') || '01211';
-
   const [analysis, setAnalysis] = useState<HaltAnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,171 +28,87 @@ function HaltAnalysisContent() {
       setError(null);
       try {
         const response = await fetch(`/api/system/halt-analysis?trainNumber=${trainNumber}`);
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
-        }
-        const data = await response.json();
-        setAnalysis(data);
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        setAnalysis(await response.json());
       } catch (err: any) {
-        setError(err.message || 'Failed to fetch halt analysis');
+        setError(err?.message || 'Failed to fetch halt analysis');
         setAnalysis(null);
       } finally {
         setLoading(false);
       }
     };
-
     fetchAnalysis();
   }, [trainNumber]);
 
+  if (loading) return <div className="flex min-h-screen items-center justify-center bg-slate-950"><RailLoader size="lg" /></div>;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[hsl(230,25%,10%)] to-[hsl(240,20%,14%)] p-6">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_10%_0%,#2b1f1f_0%,#141420_40%,#090d1f_100%)] px-4 pb-14 pt-6 md:px-7">
       <SubsidiaryServiceNavBar trainNumber={trainNumber} currentService="Halt Analysis" />
-      <div className="max-w-6xl mx-auto" style={{ marginTop: '70px' }}>
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <AlertTriangle className="w-8 h-8 text-orange-400" />
-            <h1 className="text-4xl font-bold text-white">Halt Analysis</h1>
-          </div>
-          <p className="text-[hsl(220,20%,70%)]">Train: {trainNumber}</p>
-        </div>
+      <div className="mx-auto mt-16 max-w-6xl space-y-5">
+        <header className="surface-glass rounded-2xl p-5">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-amber-300">Halt Analysis</p>
+          <h1 className="text-3xl font-black text-white">Stop Cause and Impact Diagnosis</h1>
+          <p className="mt-2 text-sm text-slate-300">Train: {trainNumber}</p>
+          {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
+        </header>
 
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          </div>
-        )}
+        {analysis && (
+          <>
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <Metric label="Current State" value={analysis.currentStatus.isHalted ? 'HALTED' : 'MOVING'} icon={<Siren className="h-4 w-4" />} />
+              <Metric label="Halt Duration" value={`${analysis.currentStatus.haltDuration || 0} min`} icon={<Clock3 className="h-4 w-4" />} />
+              <Metric label="Signal Strength" value={`${Math.round(analysis.haltAnalysis.signalStrength * 100)}%`} icon={<AlertTriangle className="h-4 w-4" />} />
+              <Metric label="Cascade Risk" value={analysis.impactAnalysis.cascadeRisk} icon={<AlertTriangle className="h-4 w-4" />} />
+            </section>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6 mb-6">
-            <p className="text-red-400">Error: {error}</p>
-          </div>
-        )}
-
-        {analysis && !loading && (
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Main Analysis */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Status Card */}
-              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
-                <h2 className="text-xl font-bold text-white mb-4">Current Status</h2>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[hsl(220,15%,55%)] text-sm">Halted</p>
-                    <p className="text-2xl font-bold text-white">
-                      {analysis.currentStatus.isHalted ? '🛑 Yes' : '✅ No'}
-                    </p>
-                  </div>
-                  {analysis.currentStatus.isHalted && (
-                    <>
-                      <div>
-                        <p className="text-[hsl(220,15%,55%)] text-sm">Halt Reason</p>
-                        <p className="text-lg font-semibold text-white">{analysis.currentStatus.haltReason || 'Unknown'}</p>
-                      </div>
-                      {analysis.currentStatus.haltDuration && (
-                        <div>
-                          <p className="text-[hsl(220,15%,55%)] text-sm">Duration</p>
-                          <p className="text-lg font-semibold text-white">{analysis.currentStatus.haltDuration} minutes</p>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Probable Causes */}
-              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
-                <h2 className="text-xl font-bold text-white mb-4">Probable Causes</h2>
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="surface-glass rounded-2xl p-5">
+                <h2 className="mb-4 text-lg font-bold text-white">Probable Causes</h2>
                 <div className="space-y-3">
                   {analysis.haltAnalysis.probableCauses.map((item, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-white">{item.cause}</span>
-                        <span className="text-[hsl(220,20%,70%)] text-sm">{(item.probability * 100).toFixed(0)}%</span>
+                    <div key={`${item.cause}-${idx}`}>
+                      <div className="mb-1 flex items-center justify-between text-sm">
+                        <span className="text-slate-200">{item.cause}</span>
+                        <span className="text-amber-200">{Math.round(item.probability * 100)}%</span>
                       </div>
-                      <div className="w-full bg-[hsl(230,20%,25%)] rounded-full h-2">
-                        <div
-                          className="h-2 rounded-full bg-blue-500"
-                          style={{ width: `${item.probability * 100}%` }}
-                        />
+                      <div className="h-2 rounded-full bg-slate-800">
+                        <div className="h-2 rounded-full bg-gradient-to-r from-amber-400 to-orange-500" style={{ width: `${item.probability * 100}%` }} />
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="text-[hsl(220,15%,55%)] text-sm mt-4">
-                  Signal Strength: {(analysis.haltAnalysis.signalStrength * 100).toFixed(0)}%
-                </p>
               </div>
 
-              {/* Impact Analysis */}
-              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
-                <h2 className="text-xl font-bold text-white mb-4">Impact Analysis</h2>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-[hsl(220,15%,55%)] text-sm">Delay Accumulation</p>
-                    <p className="text-2xl font-bold text-red-400">+{analysis.impactAnalysis.delayAccumulation} min</p>
-                  </div>
-                  <div>
-                    <p className="text-[hsl(220,15%,55%)] text-sm">Cascade Risk</p>
-                    <p className={`text-2xl font-bold ${
-                      analysis.impactAnalysis.cascadeRisk === 'High' ? 'text-red-400' :
-                      analysis.impactAnalysis.cascadeRisk === 'Medium' ? 'text-orange-400' : 'text-green-400'
-                    }`}>
-                      {analysis.impactAnalysis.cascadeRisk}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[hsl(220,15%,55%)] text-sm">Affected Stations</p>
-                    <p className="text-2xl font-bold text-white">{analysis.impactAnalysis.affectedStations}</p>
-                  </div>
+              <div className="surface-glass rounded-2xl p-5">
+                <h2 className="mb-4 text-lg font-bold text-white">Impact Snapshot</h2>
+                <div className="grid grid-cols-1 gap-2 text-sm text-slate-200">
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Delay accumulation: +{analysis.impactAnalysis.delayAccumulation} min</div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Affected stations: {analysis.impactAnalysis.affectedStations}</div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Primary reason: {analysis.currentStatus.haltReason || 'Under evaluation'}</div>
                 </div>
               </div>
+            </section>
 
-              {/* Recommendations */}
-              {analysis.recommendations.length > 0 && (
-                <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
-                  <h2 className="text-xl font-bold text-white mb-4">Recommendations</h2>
-                  <ul className="space-y-2">
-                    {analysis.recommendations.map((rec, idx) => (
-                      <li key={idx} className="flex gap-3 text-[hsl(220,20%,70%)]">
-                        <span className="text-green-400 font-bold">•</span>
-                        <span>{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            {/* Info Sidebar */}
-            <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06] h-fit">
-              <h3 className="text-lg font-bold text-white mb-4">Train Info</h3>
-              <div className="space-y-3 text-sm">
-                <div>
-                  <p className="text-[hsl(220,15%,55%)]">Train Number</p>
-                  <p className="text-white font-semibold">{analysis.trainNumber}</p>
-                </div>
-                <div>
-                  <p className="text-[hsl(220,15%,55%)]">Train Name</p>
-                  <p className="text-white font-semibold">{analysis.trainName}</p>
-                </div>
-                <div className="pt-4 border-t border-white/[0.06]">
-                  <p className="text-[hsl(220,15%,55%)] text-xs">Last Updated</p>
-                  <p className="text-[hsl(220,20%,70%)] text-xs">{new Date().toLocaleTimeString()}</p>
-                </div>
-              </div>
-            </div>
-          </div>
+            <section className="surface-glass rounded-2xl p-5">
+              <h2 className="mb-4 text-lg font-bold text-white">Operational Recommendations</h2>
+              <ul className="space-y-2 text-sm text-slate-200">
+                {analysis.recommendations.map((rec, idx) => (
+                  <li key={`${rec}-${idx}`} className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">{rec}</li>
+                ))}
+              </ul>
+            </section>
+          </>
         )}
       </div>
     </div>
   );
 }
 
+function Metric({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  return <article className="surface-glass rounded-xl px-4 py-3"><p className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-[0.12em] text-slate-400">{icon}{label}</p><p className="text-sm font-bold text-amber-100">{value}</p></article>;
+}
+
 export default function HaltAnalysisPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div></div>}>
-      <HaltAnalysisContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-950"><RailLoader size="lg" /></div>}><HaltAnalysisContent /></Suspense>;
 }

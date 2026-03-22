@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, Activity, TrendingDown, Clock, Zap, MapPin, Radio } from 'lucide-react';
+import RailLoader from '@/components/RailLoader';
 
 interface TrafficMetrics {
   timestamp: string;
@@ -64,7 +65,7 @@ export default function OperatorDashboard() {
     return (
       <div className="min-h-screen bg-dark-bg p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 rounded-full border-4 border-accent-blue border-t-transparent animate-spin mx-auto mb-4" />
+          <RailLoader size="lg" className="mx-auto mb-4" />
           <p className="text-text-secondary">Loading operator dashboard...</p>
         </div>
       </div>

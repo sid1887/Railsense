@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Database } from 'lucide-react';
+import RailLoader from '@/components/RailLoader';
 
 interface DataQualityData {
   trainNumber: string;
@@ -62,7 +63,7 @@ function DataQualityContent() {
 
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+            <RailLoader size="lg" />
           </div>
         )}
 
@@ -205,7 +206,7 @@ function DataQualityContent() {
 
 export default function DataQualityPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div></div>}>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><RailLoader size="lg" /></div>}>
       <DataQualityContent />
     </Suspense>
   );

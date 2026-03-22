@@ -4,6 +4,10 @@ import { useAuth } from '@/app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import RailLoader from '@/components/RailLoader';
+import HarmonicMandala from '@/components/backgrounds/HarmonicMandala';
+import { GlassCard } from '@/components/ui/GlassCard';
+import { ModernButton } from '@/components/ui/ModernButton';
 
 interface Preferences {
   notification_enabled: boolean;
@@ -13,6 +17,32 @@ interface Preferences {
   language: string;
   alert_frequency: string;
 }
+
+const ToggleSwitch = ({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+}) => (
+  <div className="flex items-center justify-between p-4 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/10">
+    <label className="text-gray-200 font-medium">{label}</label>
+    <button
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
+        checked ? 'bg-indigo-500' : 'bg-gray-500'
+      }`}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  </div>
+);
 
 export default function PreferencesPage() {
   const { isAuthenticated, loading } = useAuth();
@@ -85,7 +115,7 @@ export default function PreferencesPage() {
 
       if (!res.ok) throw new Error('Failed to save preferences');
 
-      setSuccess('Preferences saved successfully!');
+      setSuccess('✓ Preferences saved successfully!');
       setTimeout(() => setSuccess(''), 3000);
     } catch (err: any) {
       setError(err.message);
@@ -97,7 +127,7 @@ export default function PreferencesPage() {
   if (loading || fetching) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <RailLoader size="lg" />
       </div>
     );
   }
@@ -107,152 +137,199 @@ export default function PreferencesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">⚙️ Preferences</h1>
-          <Link href="/dashboard" className="text-indigo-600 hover:text-indigo-700">
-            ← Back
-          </Link>
-        </div>
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
+      {/* Background */}
+      <HarmonicMandala />
 
+      {/* Header */}
+      <header className="relative z-10 backdrop-blur-xl border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+              RailSense
+            </h1>
+            <p className="text-gray-400 text-sm">Preferences</p>
+          </div>
+          <button onClick={() => router.back()} className="text-gray-400 hover:text-white transition-colors">
+            ← Back
+          </button>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Error Alert */}
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700">
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200 animate-fadeInUp">
             {error}
           </div>
         )}
 
+        {/* Success Alert */}
         {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-green-700">
+          <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200 animate-fadeInUp">
             {success}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow p-6 space-y-6">
-          {/* Notification Settings */}
-          <div className="border-b pb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Notification Settings</h2>
+        {/* Header Section */}
+        <div className="mb-12">
+          <h2 className="text-4xl font-bold text-white mb-2">⚙️ Preferences</h2>
+          <p className="text-gray-400">Customize your RailSense experience</p>
+        </div>
 
-            <div className="space-y-4">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
+        {/* Settings Form */}
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Notification Settings Section */}
+          <div className="animate-fadeInUp" style={{ animationDelay: '100ms' }}>
+            <GlassCard className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <span className="text-2xl">🔔</span>
+                <h3 className="text-2xl font-bold text-white">Notification Settings</h3>
+              </div>
+              <div className="space-y-3">
+                <ToggleSwitch
                   checked={preferences.notification_enabled}
-                  onChange={(e) =>
+                  onChange={(checked) =>
                     setPreferences({
                       ...preferences,
-                      notification_enabled: e.target.checked,
+                      notification_enabled: checked,
                     })
                   }
-                  className="w-4 h-4 text-indigo-600 rounded"
+                  label="Enable all notifications"
                 />
-                <span className="ml-3 text-gray-700">Enable all notifications</span>
-              </label>
-
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
+                <ToggleSwitch
                   checked={preferences.email_enabled}
-                  onChange={(e) =>
+                  onChange={(checked) =>
                     setPreferences({
                       ...preferences,
-                      email_enabled: e.target.checked,
+                      email_enabled: checked,
                     })
                   }
-                  className="w-4 h-4 text-indigo-600 rounded"
+                  label="Email notifications"
                 />
-                <span className="ml-3 text-gray-700">Email notifications</span>
-              </label>
-
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
+                <ToggleSwitch
                   checked={preferences.push_enabled}
-                  onChange={(e) =>
+                  onChange={(checked) =>
                     setPreferences({
                       ...preferences,
-                      push_enabled: e.target.checked,
+                      push_enabled: checked,
                     })
                   }
-                  className="w-4 h-4 text-indigo-600 rounded"
+                  label="Push notifications"
                 />
-                <span className="ml-3 text-gray-700">Push notifications</span>
-              </label>
-            </div>
+              </div>
+            </GlassCard>
           </div>
 
-          {/* Alert Frequency */}
-          <div className="border-b pb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Alert Frequency
-            </label>
-            <select
-              value={preferences.alert_frequency}
-              onChange={(e) =>
-                setPreferences({
-                  ...preferences,
-                  alert_frequency: e.target.value,
-                })
-              }
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+          {/* Alert Frequency Section */}
+          <div className="animate-fadeInUp" style={{ animationDelay: '200ms' }}>
+            <GlassCard className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <span className="text-2xl">⏱️</span>
+                <h3 className="text-2xl font-bold text-white">Alert Frequency</h3>
+              </div>
+              <select
+                value={preferences.alert_frequency}
+                onChange={(e) =>
+                  setPreferences({
+                    ...preferences,
+                    alert_frequency: e.target.value,
+                  })
+                }
+                className="input-modern w-full"
+              >
+                <option value="immediate">🚨 Immediate</option>
+                <option value="hourly">⏰ Hourly Digest</option>
+                <option value="daily">📅 Daily Digest</option>
+                <option value="never">🔇 Never</option>
+              </select>
+              <p className="text-gray-400 text-sm mt-3">
+                Choose how often you want to receive train alerts and notifications
+              </p>
+            </GlassCard>
+          </div>
+
+          {/* Appearance Section */}
+          <div className="animate-fadeInUp" style={{ animationDelay: '300ms' }}>
+            <GlassCard className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <span className="text-2xl">🎨</span>
+                <h3 className="text-2xl font-bold text-white">Appearance</h3>
+              </div>
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-gray-300 font-medium mb-3">Theme</label>
+                  <select
+                    value={preferences.theme}
+                    onChange={(e) =>
+                      setPreferences({
+                        ...preferences,
+                        theme: e.target.value,
+                      })
+                    }
+                    className="input-modern w-full"
+                  >
+                    <option value="light">☀️ Light</option>
+                    <option value="dark">🌙 Dark</option>
+                    <option value="auto">📱 Auto (System)</option>
+                  </select>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
+
+          {/* Language Section */}
+          <div className="animate-fadeInUp" style={{ animationDelay: '400ms' }}>
+            <GlassCard className="p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <span className="text-2xl">🌍</span>
+                <h3 className="text-2xl font-bold text-white">Language</h3>
+              </div>
+              <select
+                value={preferences.language}
+                onChange={(e) =>
+                  setPreferences({
+                    ...preferences,
+                    language: e.target.value,
+                  })
+                }
+                className="input-modern w-full"
+              >
+                <option value="en">🇺🇸 English</option>
+                <option value="hi">🇮🇳 Hindi</option>
+                <option value="es">🇪🇸 Spanish</option>
+                <option value="fr">🇫🇷 French</option>
+              </select>
+              <p className="text-gray-400 text-sm mt-3">
+                Select your preferred language for the RailSense interface
+              </p>
+            </GlassCard>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-4 animate-fadeInUp" style={{ animationDelay: '500ms' }}>
+            <ModernButton
+              type="submit"
+              variant="glow"
+              size="lg"
+              disabled={saving}
+              className="flex-1"
             >
-              <option value="immediate">Immediate</option>
-              <option value="hourly">Hourly Digest</option>
-              <option value="daily">Daily Digest</option>
-              <option value="never">Never</option>
-            </select>
-          </div>
-
-          {/* Theme */}
-          <div className="border-b pb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">Theme</label>
-            <select
-              value={preferences.theme}
-              onChange={(e) =>
-                setPreferences({
-                  ...preferences,
-                  theme: e.target.value,
-                })
-              }
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              {saving ? '⏳ Saving...' : '💾 Save Preferences'}
+            </ModernButton>
+            <ModernButton
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => router.back()}
+              className="border-gray-500/50 text-gray-300"
             >
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
-              <option value="auto">Auto (System)</option>
-            </select>
+              Cancel
+            </ModernButton>
           </div>
-
-          {/* Language */}
-          <div className="pb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-3">Language</label>
-            <select
-              value={preferences.language}
-              onChange={(e) =>
-                setPreferences({
-                  ...preferences,
-                  language: e.target.value,
-                })
-              }
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            >
-              <option value="en">English</option>
-              <option value="hi">Hindi</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-            </select>
-          </div>
-
-          {/* Save Button */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Saving...' : 'Save Preferences'}
-          </button>
         </form>
-      </div>
+      </main>
     </div>
   );
 }

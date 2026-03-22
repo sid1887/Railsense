@@ -325,3 +325,36 @@ export function closeDatabase() {
 
 // Initialize on import
 getDatabase();
+
+/**
+ * Seed demo user if it doesn't exist
+ */
+export async function seedDemoUser() {
+  try {
+    const { hashPassword } = await import('@/lib/jwt');
+
+    // Check if demo user already exists
+    const existingUser = await dbGet(
+      'SELECT id FROM users WHERE email = ?',
+      ['demo@railsense.com']
+    );
+
+    if (existingUser) {
+      console.log('[DB] Demo user already exists');
+      return;
+    }
+
+    // Hash the demo password
+    const passwordHash = await hashPassword('demo123456');
+
+    // Create demo user
+    const result = await dbRun(
+      `INSERT INTO users (email, password_hash, name, role) VALUES (?, ?, ?, ?)`,
+      ['demo@railsense.com', passwordHash, 'Demo User', 'user']
+    );
+
+    console.log('[DB] Demo user created with ID:', result.id);
+  } catch (error) {
+    console.error('[DB] Error seeding demo user:', error);
+  }
+}

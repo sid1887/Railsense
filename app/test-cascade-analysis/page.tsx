@@ -1,45 +1,24 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { TrendingDown } from 'lucide-react';
+import { Activity, AlertTriangle, GitBranch, TrendingDown } from 'lucide-react';
 import SubsidiaryServiceNavBar from '@/app/components/SubsidiaryServiceNavBar';
+import RailLoader from '@/components/RailLoader';
 
 interface CascadeAnalysisData {
-  train: {
-    number: string;
-    name: string;
-  };
+  train: { number: string; name: string };
   currentDelay: number;
-  cascadeAnalysis: {
-    delayOrigin: string;
-    estimatedPropagation: Array<{ station: string; estimatedDelay: number; impactedTrains: number }>;
-    affectedRoutes: any[];
-    totalAffectedTrains: number;
-  };
-  delayProgression: {
-    trend: string;
-    velocityOfChange: string;
-    projectedDelay: number;
-  };
-  networkRiskFactors: {
-    upstreamCongestion: boolean;
-    downstreamCongestion: boolean;
-    platformAvailability: boolean;
-    junctionSpacing: string;
-  };
-  recoveryPotential: {
-    estimatedRecovery: string;
-    fastTrackSections: any[];
-    recoveryProbability: number;
-  };
+  cascadeAnalysis: { delayOrigin: string; estimatedPropagation: Array<{ station: string; estimatedDelay: number; impactedTrains: number }>; totalAffectedTrains: number };
+  delayProgression: { trend: string; velocityOfChange: string; projectedDelay: number };
+  networkRiskFactors: { upstreamCongestion: boolean; downstreamCongestion: boolean; platformAvailability: boolean; junctionSpacing: string };
+  recoveryPotential: { estimatedRecovery: string; recoveryProbability: number };
   recommendations: string[];
 }
 
 function CascadeAnalysisContent() {
   const searchParams = useSearchParams();
   const trainNumber = searchParams.get('trainNumber') || '01211';
-
   const [analysis, setAnalysis] = useState<CascadeAnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,13 +29,10 @@ function CascadeAnalysisContent() {
       setError(null);
       try {
         const response = await fetch(`/api/system/cascade-analysis?trainNumber=${trainNumber}`);
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
-        }
-        const data = await response.json();
-        setAnalysis(data);
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        setAnalysis(await response.json());
       } catch (err: any) {
-        setError(err.message || 'Failed to fetch cascade analysis');
+        setError(err?.message || 'Failed to fetch cascade analysis');
         setAnalysis(null);
       } finally {
         setLoading(false);
@@ -66,154 +42,80 @@ function CascadeAnalysisContent() {
     fetchAnalysis();
   }, [trainNumber]);
 
+  if (loading) return <div className="flex min-h-screen items-center justify-center bg-slate-950"><RailLoader size="lg" /></div>;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[hsl(230,25%,10%)] to-[hsl(240,20%,14%)] p-6">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_10%_0%,#3a1f2b_0%,#16111b_40%,#090d1f_100%)] px-4 pb-14 pt-6 md:px-7">
       <SubsidiaryServiceNavBar trainNumber={trainNumber} currentService="Cascade Analysis" />
-      <div className="max-w-6xl mx-auto" style={{ marginTop: '70px' }}>
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <TrendingDown className="w-8 h-8 text-red-400" />
-            <h1 className="text-4xl font-bold text-white">Cascade Analysis</h1>
-          </div>
-          <p className="text-[hsl(220,20%,70%)]">Train: {trainNumber}</p>
-        </div>
+      <div className="mx-auto mt-16 max-w-6xl space-y-5">
+        <header className="surface-glass rounded-2xl p-5">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-rose-300">Cascade Detection</p>
+          <h1 className="text-3xl font-black text-white">Delay Propagation Watch</h1>
+          <p className="mt-2 text-sm text-slate-300">Train: {trainNumber}</p>
+          {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
+        </header>
 
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          </div>
-        )}
+        {analysis && (
+          <>
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
+              <Card label="Current Delay" value={`${analysis.currentDelay} min`} icon={<TrendingDown className="h-4 w-4" />} />
+              <Card label="Projected Delay" value={`${analysis.delayProgression.projectedDelay} min`} icon={<Activity className="h-4 w-4" />} />
+              <Card label="Affected Trains" value={analysis.cascadeAnalysis.totalAffectedTrains} icon={<GitBranch className="h-4 w-4" />} />
+              <Card label="Recovery" value={`${Math.round(analysis.recoveryPotential.recoveryProbability * 100)}%`} icon={<AlertTriangle className="h-4 w-4" />} />
+            </section>
 
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6 mb-6">
-            <p className="text-red-400">Error: {error}</p>
-          </div>
-        )}
-
-        {analysis && !loading && (
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Main Analysis */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Current Status */}
-              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
-                <h2 className="text-xl font-bold text-white mb-4">Current Delay</h2>
-                <p className="text-5xl font-bold text-red-400">{analysis.currentDelay} min</p>
-              </div>
-
-              {/* Delay Progression */}
-              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
-                <h2 className="text-xl font-bold text-white mb-4">Delay Progression</h2>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-[hsl(220,15%,55%)] text-sm">Trend</p>
-                    <p className={`font-semibold capitalize ${
-                      analysis.delayProgression.trend === 'increasing' ? 'text-red-400' :
-                      analysis.delayProgression.trend === 'decreasing' ? 'text-green-400' : 'text-yellow-400'
-                    }`}>
-                      {analysis.delayProgression.trend}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[hsl(220,15%,55%)] text-sm">Velocity of Change</p>
-                    <p className="text-white font-semibold">{analysis.delayProgression.velocityOfChange}</p>
-                  </div>
-                  <div>
-                    <p className="text-[hsl(220,15%,55%)] text-sm">Projected Delay</p>
-                    <p className="text-red-400 font-semibold text-lg">{analysis.delayProgression.projectedDelay} min</p>
-                  </div>
+            <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="surface-glass rounded-2xl p-5">
+                <h2 className="mb-4 text-lg font-bold text-white">Delay Progression</h2>
+                <div className="space-y-2 text-sm text-slate-200">
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Trend: {analysis.delayProgression.trend}</div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Velocity: {analysis.delayProgression.velocityOfChange}</div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Delay origin: {analysis.cascadeAnalysis.delayOrigin}</div>
                 </div>
               </div>
 
-              {/* Cascade Propagation */}
-              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
-                <h2 className="text-xl font-bold text-white mb-4">Estimated Propagation</h2>
-                <div className="space-y-3">
-                  {analysis.cascadeAnalysis.estimatedPropagation.map((item, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex justify-between items-center">
-                        <span className="text-white">{item.station}</span>
-                        <span className="text-red-400 text-sm">+{item.estimatedDelay} min</span>
-                      </div>
-                      <div className="w-full bg-[hsl(230,20%,25%)] rounded-full h-2">
-                        <div
-                          className="h-2 rounded-full bg-red-500"
-                          style={{ width: `${Math.min(item.estimatedDelay * 5, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+              <div className="surface-glass rounded-2xl p-5">
+                <h2 className="mb-4 text-lg font-bold text-white">Network Risk Factors</h2>
+                <div className="space-y-2 text-sm text-slate-200">
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Upstream congestion: {analysis.networkRiskFactors.upstreamCongestion ? 'Yes' : 'No'}</div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Downstream congestion: {analysis.networkRiskFactors.downstreamCongestion ? 'Yes' : 'No'}</div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Platform availability: {analysis.networkRiskFactors.platformAvailability ? 'Available' : 'Limited'}</div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">Junction spacing: {analysis.networkRiskFactors.junctionSpacing}</div>
                 </div>
               </div>
+            </section>
 
-              {/* Risk Factors */}
-              <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06]">
-                <h2 className="text-xl font-bold text-white mb-4">Network Risk Factors</h2>
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center p-2 bg-[hsl(230,20%,12%)] rounded">
-                    <span className="text-[hsl(220,20%,70%)] text-sm">Upstream Congestion</span>
-                    <span className={`font-semibold ${analysis.networkRiskFactors.upstreamCongestion ? 'text-red-400' : 'text-green-400'}`}>
-                      {analysis.networkRiskFactors.upstreamCongestion ? '⚠ Yes' : '✓ No'}
-                    </span>
+            <section className="surface-glass rounded-2xl p-5">
+              <h2 className="mb-4 text-lg font-bold text-white">Propagation Forecast</h2>
+              <div className="space-y-2">
+                {analysis.cascadeAnalysis.estimatedPropagation.map((item, idx) => (
+                  <div key={`${item.station}-${idx}`} className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2 text-sm text-slate-200">
+                    <span className="font-semibold text-rose-200">{item.station}</span> • +{item.estimatedDelay} min • impacted trains: {item.impactedTrains}
                   </div>
-                  <div className="flex justify-between items-center p-2 bg-[hsl(230,20%,12%)] rounded">
-                    <span className="text-[hsl(220,20%,70%)] text-sm">Downstream Congestion</span>
-                    <span className={`font-semibold ${analysis.networkRiskFactors.downstreamCongestion ? 'text-red-400' : 'text-green-400'}`}>
-                      {analysis.networkRiskFactors.downstreamCongestion ? '⚠ Yes' : '✓ No'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-[hsl(230,20%,12%)] rounded">
-                    <span className="text-[hsl(220,20%,70%)] text-sm">Platform Availability</span>
-                    <span className={`font-semibold ${!analysis.networkRiskFactors.platformAvailability ? 'text-red-400' : 'text-green-400'}`}>
-                      {analysis.networkRiskFactors.platformAvailability ? '✓ Available' : '⚠ Limited'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-[hsl(230,20%,12%)] rounded">
-                    <span className="text-[hsl(220,20%,70%)] text-sm">Junction Spacing</span>
-                    <span className="text-[hsl(220,20%,70%)] font-semibold capitalize">{analysis.networkRiskFactors.junctionSpacing}</span>
-                  </div>
-                </div>
+                ))}
               </div>
-            </div>
+            </section>
 
-            {/* Recovery Info */}
-            <div className="bg-[hsl(230,20%,16%)] rounded-lg p-6 border border-white/[0.06] h-fit">
-              <h3 className="text-lg font-bold text-white mb-4">Recovery Potential</h3>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-[hsl(220,15%,55%)] text-sm">Recovery Probability</p>
-                  <div className="flex items-end gap-2">
-                    <p className="text-2xl font-bold text-green-400">{(analysis.recoveryPotential.recoveryProbability * 100).toFixed(0)}%</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-[hsl(220,15%,55%)] text-sm">Estimated Recovery</p>
-                  <p className="text-lg font-semibold text-green-400">{analysis.recoveryPotential.estimatedRecovery}</p>
-                </div>
-                <div className="pt-4 border-t border-white/[0.06]">
-                  <p className="text-[hsl(220,15%,55%)] text-xs mb-2">RECOMMENDATIONS</p>
-                  <ul className="space-y-2">
-                    {analysis.recommendations.map((rec, idx) => (
-                      <li key={idx} className="text-xs text-[hsl(220,20%,70%)] flex gap-2">
-                        <span className="text-green-400 mt-0.5">•</span>
-                        <span>{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </div>
+            <section className="surface-glass rounded-2xl p-5">
+              <h2 className="mb-4 text-lg font-bold text-white">Recovery Guidance</h2>
+              <p className="mb-3 text-sm text-slate-300">Estimated recovery: {analysis.recoveryPotential.estimatedRecovery}</p>
+              <ul className="space-y-2 text-sm text-slate-200">
+                {analysis.recommendations.map((rec, idx) => (
+                  <li key={`${rec}-${idx}`} className="rounded-lg border border-slate-700 bg-slate-900/45 px-3 py-2">{rec}</li>
+                ))}
+              </ul>
+            </section>
+          </>
         )}
       </div>
     </div>
   );
 }
 
+function Card({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
+  return <article className="surface-glass rounded-xl px-4 py-3"><p className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-[0.12em] text-slate-400">{icon}{label}</p><p className="text-sm font-bold text-rose-100">{value}</p></article>;
+}
+
 export default function CascadeAnalysisPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div></div>}>
-      <CascadeAnalysisContent />
-    </Suspense>
-  );
+  return <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-950"><RailLoader size="lg" /></div>}><CascadeAnalysisContent /></Suspense>;
 }

@@ -1,435 +1,133 @@
 'use client';
 
-import React from 'react';
-import {
-  Zap,
-  AlertTriangle,
-  TrendingDown,
-  Users,
-  Brain,
-  Database,
-  MapPin,
-  Clock,
-  Activity,
-  BarChart3,
-} from 'lucide-react';
+import { motion } from 'framer-motion';
+import Link from 'next/link';
+import { Activity, Brain, Clock3, Database, MapPin, ShieldAlert, Sparkles, TrendingDown, Users } from 'lucide-react';
+import { RailwayFlowBackground } from '@/components/RailwayFlowBackground';
+
+const modules = [
+  {
+    name: 'Network Intelligence',
+    href: '/test-network-intelligence',
+    description: 'Nearby train interactions, route overlap, and congestion scoring.',
+    icon: MapPin,
+    tone: 'from-cyan-500/20 to-blue-500/20 border-cyan-300/35',
+  },
+  {
+    name: 'Halt Analysis',
+    href: '/test-halt-analysis',
+    description: 'Station halt diagnosis with probable causes and impact guidance.',
+    icon: Clock3,
+    tone: 'from-amber-500/20 to-orange-500/20 border-amber-300/35',
+  },
+  {
+    name: 'Passenger Safety',
+    href: '/test-passenger-safety',
+    description: 'Connection risk, dwell anomalies, and safety confidence outputs.',
+    icon: Users,
+    tone: 'from-emerald-500/20 to-teal-500/20 border-emerald-300/35',
+  },
+  {
+    name: 'Cascade Detection',
+    href: '/test-cascade-analysis',
+    description: 'Delay ripple effects across linked trains and sections.',
+    icon: TrendingDown,
+    tone: 'from-rose-500/20 to-red-500/20 border-rose-300/35',
+  },
+  {
+    name: 'Explainability',
+    href: '/test-explainability',
+    description: 'Reasoning chains and confidence factors behind each forecast.',
+    icon: Brain,
+    tone: 'from-violet-500/20 to-indigo-500/20 border-violet-300/35',
+  },
+  {
+    name: 'Data Quality',
+    href: '/data-quality',
+    description: 'Live source transparency and prediction strength visibility.',
+    icon: Database,
+    tone: 'from-slate-500/20 to-slate-400/20 border-slate-300/35',
+  },
+];
 
 export default function IntelligenceDashboardPage() {
-  // All metrics are fetched in real-time from their respective intelligent services
-  // This page serves as a hub navigating to detailed analysis pages:
-  // - test-network-intelligence: Real-time network density, congestion, nearby trains
-  // - test-halt-analysis: Real-time halt detection, reasons, impact analysis
-  // - test-cascade-analysis: Real-time delay cascade analysis and recovery prediction
-  // - test-passenger-safety: Real-time safety metrics, connection risks, dwell anomalies
-  // - test-explainability: Real-time reasoning chains explaining predictions
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Brain className="w-12 h-12 text-purple-400" />
-            <h1 className="text-5xl font-bold text-white">Advanced Intelligence Dashboard</h1>
-          </div>
-          <p className="text-purple-200 text-lg">
-            Unified view of all Week 3 intelligence systems - Network, Halt, Safety, Cascade, Explainability, and
-            Persistence
-          </p>
-        </div>
-
-        {/* Top Metrics Row - Links to Real Intelligence Services */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Network Health - See Real Data */}
-          <a href="/test-network-intelligence" className="group">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg p-6 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-blue-200 text-sm font-semibold">Network Health</p>
-                  <h3 className="text-3xl font-bold mt-1 text-blue-100">Live</h3>
-                </div>
-                <MapPin className="w-8 h-8 text-blue-200 group-hover:scale-110 transition" />
-              </div>
-              <div className="text-xs text-blue-100">
-                Click to view real-time train density and congestion analysis
-              </div>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_12%_0%,#1a2d59_0%,#0b132a_40%,#090d1f_100%)] px-4 pb-16 pt-8 md:px-8">
+      <RailwayFlowBackground tone="intelligence" opacity={0.26} />
+      <div className="relative z-10 mx-auto max-w-7xl space-y-6">
+        <motion.header
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="surface-glass rounded-3xl p-6"
+        >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">Unified AI Control Board</p>
+              <h1 className="text-3xl font-black text-white md:text-4xl">Intelligence Dashboard</h1>
+              <p className="mt-2 max-w-2xl text-sm text-slate-300">
+                A single command layer for monitoring the complete prediction pipeline and intelligence modules.
+              </p>
             </div>
-          </a>
-
-          {/* Passenger Safety - See Real Data */}
-          <a href="/test-passenger-safety" className="group">
-            <div className="bg-gradient-to-br from-green-500 to-emerald-700 rounded-lg p-6 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-green-200 text-sm font-semibold">Passenger Safety</p>
-                  <h3 className="text-3xl font-bold mt-1 text-green-100">Live</h3>
-                </div>
-                <Users className="w-8 h-8 text-green-200 group-hover:scale-110 transition" />
-              </div>
-              <div className="text-xs text-green-100">
-                Click to view real-time safety metrics and connection risk analysis
-              </div>
-            </div>
-          </a>
-
-          {/* Cascade Status - See Real Data */}
-          <a href="/test-cascade-analysis" className="group">
-            <div className="bg-gradient-to-br from-orange-500 to-red-700 rounded-lg p-6 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-orange-200 text-sm font-semibold">Cascade Analysis</p>
-                  <h3 className="text-3xl font-bold mt-1 text-orange-100">Live</h3>
-                </div>
-                <TrendingDown className="w-8 h-8 text-orange-200 group-hover:scale-110 transition" />
-              </div>
-              <div className="text-xs text-orange-100">
-                Click to view real-time delay cascade and propagation analysis
-              </div>
-            </div>
-          </a>
-
-          {/* Explainability - See Real Data */}
-          <a href="/test-explainability" className="group">
-            <div className="bg-gradient-to-br from-purple-500 to-indigo-700 rounded-lg p-6 text-white shadow-lg hover:shadow-xl transition-shadow cursor-pointer">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-purple-200 text-sm font-semibold">Explainability</p>
-                  <h3 className="text-3xl font-bold mt-1 text-purple-100">Live</h3>
-                </div>
-                <Brain className="w-8 h-8 text-purple-200 group-hover:scale-110 transition" />
-              </div>
-              <div className="text-xs text-purple-100">
-                Click to see reasoning chains explaining predictions
-              </div>
-            </div>
-          </a>
-        </div>
-
-        {/* Main Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* Network Intelligence Section */}
-          <div className="lg:col-span-1 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-6 shadow-lg">
-            <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-blue-400" />
-              Network Intelligence
-            </h2>
-
-            <div className="space-y-3">
-              <div className="bg-slate-700 rounded p-3">
-                <p className="text-slate-400 text-xs mb-1">Active Sections</p>
-                <p className="text-white font-bold text-xl">6</p>
-              </div>
-
-              <div className="bg-slate-700 rounded p-3">
-                <p className="text-slate-400 text-xs mb-1">Hotspots Detected</p>
-                <p className="text-yellow-400 font-bold text-xl">Real-time</p>
-              </div>
-
-              <div className="bg-slate-700 rounded p-3">
-                <p className="text-slate-400 text-xs mb-1">Avg. Train Density</p>
-                <p className="text-blue-400 font-bold text-xl">Live data</p>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-slate-600">
-                <a
-                  href="/test-network-intelligence"
-                  className="text-blue-400 hover:text-blue-300 text-sm font-semibold"
-                >
-                  View Details →
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Halt Analysis Section */}
-          <div className="lg:col-span-1 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-6 shadow-lg">
-            <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-red-400" />
-              Halt Analysis
-            </h2>
-
-            <div className="space-y-3">
-              <div className="bg-slate-700 rounded p-3">
-                <p className="text-slate-400 text-xs mb-1">Active Halts</p>
-                <p className="text-red-400 font-bold text-xl">Real-time</p>
-              </div>
-
-              <div className="bg-slate-700 rounded p-3">
-                <p className="text-slate-400 text-xs mb-1">Critical Situations</p>
-                <p className="text-red-500 font-bold text-xl">Live</p>
-              </div>
-
-              <div className="bg-slate-700 rounded p-3">
-                <p className="text-slate-400 text-xs mb-1">Avg. Duration</p>
-                <p className="text-orange-400 font-bold text-xl">Calculating</p>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-slate-600">
-                <a
-                  href="/test-halt-analysis"
-                  className="text-blue-400 hover:text-blue-300 text-sm font-semibold"
-                >
-                  View Details →
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Passenger Safety Section */}
-          <div className="lg:col-span-1 bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-6 shadow-lg">
-            <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-              <Users className="w-5 h-5 text-green-400" />
-              Passenger Safety
-            </h2>
-
-            <div className="space-y-3">
-              <div className="bg-slate-700 rounded p-3">
-                <p className="text-slate-400 text-xs mb-1">Safety Score</p>
-                <p className="text-green-400 font-bold text-xl">Real-time</p>
-              </div>
-
-              <div className="bg-slate-700 rounded p-3">
-                <p className="text-slate-400 text-xs mb-1">At-Risk Trains</p>
-                <p className="text-yellow-400 font-bold text-xl">Live</p>
-              </div>
-
-              <div className="bg-slate-700 rounded p-3">
-                <p className="text-slate-400 text-xs mb-1">Dwell Anomalies</p>
-                <p className="text-orange-400 font-bold text-xl">Tracking</p>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-slate-600">
-                <a
-                  href="/test-passenger-safety"
-                  className="text-blue-400 hover:text-blue-300 text-sm font-semibold"
-                >
-                  View Details →
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Intelligence Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {/* Cascade Detection */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-5 shadow-lg">
-            <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-              <TrendingDown className="w-5 h-5 text-red-400" />
-              Delay Cascade
-            </h3>
-            <p className="text-slate-400 text-sm mb-4">
-              Ripple effect modeling with priority conflict detection
-            </p>
-            <div className="mb-4 p-3 bg-red-900 bg-opacity-30 rounded border border-red-500 border-opacity-50">
-              <p className="text-red-300 text-sm">Real-time cascade analysis active</p>
-              <p className="text-red-300 text-sm">Network impact assessment live</p>
-            </div>
-            <a
-              href="/test-cascade-analysis"
-              className="text-blue-400 hover:text-blue-300 text-sm font-semibold"
+            <Link
+              href="/intelligence-hub"
+              className="inline-flex items-center gap-2 rounded-xl border border-cyan-300/35 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-200 transition hover:bg-cyan-500/20"
             >
-              Analyze →
-            </a>
+              <Sparkles className="h-4 w-4" />
+              Open Operations Hub
+            </Link>
           </div>
 
-          {/* Explainability Engine */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-5 shadow-lg">
-            <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-              <Brain className="w-5 h-5 text-purple-400" />
-              Explainability Engine
-            </h3>
-            <p className="text-slate-400 text-sm mb-4">
-              Transparent reasoning with evidence chains for all predictions
-            </p>
-            <div className="mb-4 p-3 bg-purple-900 bg-opacity-30 rounded border border-purple-500 border-opacity-50">
-              <p className="text-purple-300 text-sm">Reasoning model: Active</p>
-              <p className="text-purple-300 text-sm">Evidence factors: 8+ tracked</p>
-            </div>
-            <a
-              href="/test-explainability"
-              className="text-blue-400 hover:text-blue-300 text-sm font-semibold"
-            >
-              Explore →
-            </a>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <SignalTile label="Modules" value="6 Active" icon={<Brain className="h-4 w-4" />} />
+            <SignalTile label="Endpoint" value="Unified" icon={<Activity className="h-4 w-4" />} />
+            <SignalTile label="Prediction" value="Live" icon={<ShieldAlert className="h-4 w-4" />} />
+            <SignalTile label="Refresh" value="30 sec" icon={<Clock3 className="h-4 w-4" />} />
           </div>
+        </motion.header>
 
-          {/* Database Persistence */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-5 shadow-lg">
-            <h3 className="text-white font-bold mb-3 flex items-center gap-2">
-              <Database className="w-5 h-5 text-indigo-400" />
-              Data Persistence
-            </h3>
-            <p className="text-slate-400 text-sm mb-4">
-              Historical patterns and network state storage
-            </p>
-            <div className="mb-4 p-3 bg-indigo-900 bg-opacity-30 rounded border border-indigo-500 border-opacity-50">
-              <p className="text-indigo-300 text-sm">Real-time snapshot tracking</p>
-              <p className="text-indigo-300 text-sm">Pattern recognition active</p>
-            </div>
-            <button className="text-blue-400 hover:text-blue-300 text-sm font-semibold">
-              Manage Storage →
-            </button>
-          </div>
-        </div>
-
-        {/* System Status */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-6 shadow-lg">
-          <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-green-400" />
-            System Status
-          </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-4 bg-slate-700 rounded-lg">
-              <p className="text-slate-400 text-xs font-semibold uppercase mb-2">Services</p>
-              <p className="text-green-400 font-bold text-lg">7/7 Online</p>
-              <p className="text-slate-500 text-xs mt-1">All systems operational</p>
-            </div>
-
-            <div className="p-4 bg-slate-700 rounded-lg">
-              <p className="text-slate-400 text-xs font-semibold uppercase mb-2">API Endpoints</p>
-              <p className="text-blue-400 font-bold text-lg">28 Active</p>
-              <p className="text-slate-500 text-xs mt-1">+8 from Week 3 additions</p>
-            </div>
-
-            <div className="p-4 bg-slate-700 rounded-lg">
-              <p className="text-slate-400 text-xs font-semibold uppercase mb-2">Data Quality</p>
-              <p className="text-purple-400 font-bold text-lg">94%</p>
-              <p className="text-slate-500 text-xs mt-1">High confidence predictions</p>
-            </div>
-
-            <div className="p-4 bg-slate-700 rounded-lg">
-              <p className="text-slate-400 text-xs font-semibold uppercase mb-2">Network Health</p>
-              <p className="text-yellow-400 font-bold text-lg">Caution</p>
-              <p className="text-slate-500 text-xs mt-1">72% congestion detected</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Feature Matrix */}
-        <div className="mt-6 bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg border border-slate-700 p-6 shadow-lg">
-          <h2 className="text-white font-bold text-lg mb-4 flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-cyan-400" />
-            Week 3 Intelligence Features
-          </h2>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-600">
-                  <th className="text-left py-3 px-4 text-slate-300">Feature</th>
-                  <th className="text-center py-3 px-4 text-slate-300">Service</th>
-                  <th className="text-center py-3 px-4 text-slate-300">API</th>
-                  <th className="text-center py-3 px-4 text-slate-300">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-slate-700 hover:bg-slate-700 hover:bg-opacity-30">
-                  <td className="py-3 px-4 text-white">Railway Network Intelligence</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="px-2 py-1 bg-green-900 text-green-300 rounded text-xs">
-                      ✓ Active
+        <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {modules.map((module, index) => {
+            const Icon = module.icon;
+            return (
+              <motion.div
+                key={module.name}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.06 }}
+              >
+                <Link
+                  href={module.href}
+                  className={`group block rounded-2xl border bg-gradient-to-br p-5 backdrop-blur-sm transition hover:-translate-y-0.5 ${module.tone}`}
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="rounded-lg bg-slate-950/40 p-2 text-cyan-200">
+                      <Icon className="h-5 w-5" />
                     </span>
-                  </td>
-                  <td className="py-3 px-4 text-center text-cyan-400">/api/network-intelligence</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                  </td>
-                </tr>
-
-                <tr className="border-b border-slate-700 hover:bg-slate-700 hover:bg-opacity-30">
-                  <td className="py-3 px-4 text-white">Halt Reason Analysis</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="px-2 py-1 bg-green-900 text-green-300 rounded text-xs">
-                      ✓ Active
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center text-cyan-400">/api/halt-analysis</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                  </td>
-                </tr>
-
-                <tr className="border-b border-slate-700 hover:bg-slate-700 hover:bg-opacity-30">
-                  <td className="py-3 px-4 text-white">Explainability Engine</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="px-2 py-1 bg-green-900 text-green-300 rounded text-xs">
-                      ✓ Active
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center text-cyan-400">/api/explainability</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                  </td>
-                </tr>
-
-                <tr className="border-b border-slate-700 hover:bg-slate-700 hover:bg-opacity-30">
-                  <td className="py-3 px-4 text-white">Passenger Safety & Dwell</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="px-2 py-1 bg-green-900 text-green-300 rounded text-xs">
-                      ✓ Active
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center text-cyan-400">/api/passenger-safety</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                  </td>
-                </tr>
-
-                <tr className="border-b border-slate-700 hover:bg-slate-700 hover:bg-opacity-30">
-                  <td className="py-3 px-4 text-white">Delay Cascade & Priority</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="px-2 py-1 bg-green-900 text-green-300 rounded text-xs">
-                      ✓ Active
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center text-cyan-400">/api/cascade-analysis</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                  </td>
-                </tr>
-
-                <tr className="border-b border-slate-700 hover:bg-slate-700 hover:bg-opacity-30">
-                  <td className="py-3 px-4 text-white">Database Persistence</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="px-2 py-1 bg-green-900 text-green-300 rounded text-xs">
-                      ✓ Active
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center text-cyan-400">/api/database</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                  </td>
-                </tr>
-
-                <tr className="hover:bg-slate-700 hover:bg-opacity-30">
-                  <td className="py-3 px-4 text-white">Advanced Intelligence Dashboard</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="px-2 py-1 bg-green-900 text-green-300 rounded text-xs">
-                      ✓ Active
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-center text-cyan-400">/intelligence</td>
-                  <td className="py-3 px-4 text-center">
-                    <span className="w-2 h-2 bg-green-500 rounded-full inline-block"></span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="mt-8 text-center text-slate-400">
-          <p className="text-sm">
-            Week 3 Complete: 7/7 Tasks • 7 Major Services • 28 API Endpoints • 15+ Intelligence Features
-          </p>
-          <p className="text-xs mt-2 text-slate-500">
-            Advanced Railway Intelligence Platform • Explainable AI • Real-time Network Analysis
-          </p>
-        </div>
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-300">Live</span>
+                  </div>
+                  <h2 className="mb-2 text-lg font-bold text-white">{module.name}</h2>
+                  <p className="text-sm text-slate-200/90">{module.description}</p>
+                  <span className="mt-4 inline-block text-sm font-semibold text-cyan-200 transition group-hover:text-cyan-100">
+                    Explore Module →
+                  </span>
+                </Link>
+              </motion.div>
+            );
+          })}
+        </section>
       </div>
     </div>
+  );
+}
+
+function SignalTile({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  return (
+    <article className="rounded-xl border border-slate-700/80 bg-slate-950/45 px-3 py-3">
+      <p className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-[0.12em] text-slate-400">
+        {icon}
+        {label}
+      </p>
+      <p className="text-sm font-bold text-cyan-100">{value}</p>
+    </article>
   );
 }

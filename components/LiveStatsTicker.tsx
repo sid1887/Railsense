@@ -41,9 +41,9 @@ export const LiveStatsTicker: React.FC = () => {
   }, [stats]);
 
   return (
-    <div className="w-full bg-gradient-to-r from-dark-card via-dark-bg to-dark-card border border-accent-blue border-opacity-20 rounded-lg p-6 overflow-hidden">
+    <div className="relative w-full bg-gradient-to-r from-dark-card via-dark-bg to-dark-card border border-accent-blue border-opacity-20 rounded-lg p-6 overflow-hidden">
       {/* Animated gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-accent-blue from-0% via-transparent via-50% to-accent-cyan to-100% opacity-5 animate-pulse" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-accent-blue from-0% via-transparent via-50% to-accent-cyan to-100% opacity-5 animate-pulse" />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10">

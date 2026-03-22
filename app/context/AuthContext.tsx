@@ -30,7 +30,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check if user is already logged in on mount
   useEffect(() => {
-    const checkAuth = async () => {
+    const initializeAuth = async () => {
+      // Seed demo user on first load
+      try {
+        await fetch('/api/auth/seed-demo', {
+          method: 'POST'
+        });
+      } catch (error) {
+        console.error('Error seeding demo user:', error);
+      }
+
       const token = localStorage.getItem('accessToken');
       if (token) {
         try {
@@ -52,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     };
 
-    checkAuth();
+    initializeAuth();
   }, []);
 
   const login = async (email: string, password: string) => {

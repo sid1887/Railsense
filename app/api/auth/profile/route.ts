@@ -38,12 +38,14 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(
       {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        created_at: user.created_at,
-        last_login: user.last_login
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          createdAt: user.created_at,
+          lastLogin: user.last_login
+        }
       },
       { status: 200 }
     );
